@@ -13,31 +13,6 @@ local SCRIPT_NAME <const> = "TRYHARD.lua"
 local SCRIPT_TITLE <const> = "TRYHARD"
 local SCRIPT_SETTINGS__PATH <const> = "scripts\\TRYHARD\\Settings.ini"
 local HOME_PATH <const> = utils.get_appdata_path("PopstarDevs", "2Take1Menu")
-local GET_BST__FEAT <const> = menu.get_feature_by_hierarchy_key("online.services.bull_shark_testosterone")
--- LATER ADD THIS IN SETTINGS FILE ?
-local USER_SNACKS_AND_ARMORS_TO_REFILL <const> = {
-    NO_BOUGHT_YUM_SNACKS = 30,
-    NO_BOUGHT_HEALTH_SNACKS = 15,
-    NO_BOUGHT_EPIC_SNACKS = 5,
-    NUMBER_OF_ORANGE_BOUGHT = 10,
-    NUMBER_OF_BOURGE_BOUGHT = 10,
-    NUMBER_OF_CHAMP_BOUGHT = 5,
-    CIGARETTES_BOUGHT = 20,
-    NUMBER_OF_SPRUNK_BOUGHT = 10,
-    MP_CHAR_ARMOUR_1_COUNT = 10,
-    MP_CHAR_ARMOUR_2_COUNT = 10,
-    MP_CHAR_ARMOUR_3_COUNT = 10,
-    MP_CHAR_ARMOUR_4_COUNT = 10,
-    MP_CHAR_ARMOUR_5_COUNT = 10
-}
-local MP_STATS_EXCEPTIONS = {
-    ["MP_CHAR_STAT_RALLY_ANIM"] = true,
-    ["MP_CHAR_ARMOUR_1_COUNT"] = true,
-    ["MP_CHAR_ARMOUR_2_COUNT"] = true,
-    ["MP_CHAR_ARMOUR_3_COUNT"] = true,
-    ["MP_CHAR_ARMOUR_4_COUNT"] = true,
-    ["MP_CHAR_ARMOUR_5_COUNT"] = true,
-}
 local TRUSTED_FLAGS <const> = {
     { name = "LUA_TRUST_STATS", menuName = "Trusted Stats", bitValue = 1 << 0, isRequiered = true },
     { name = "LUA_TRUST_SCRIPT_VARS", menuName = "Trusted Globals / Locals", bitValue = 1 << 1, isRequiered = false },
@@ -146,12 +121,21 @@ local function get_collection_custom_value(collection, inputKey, inputValue, out
 end
 
 local function ADD_MP_INDEX(statName, lastMpChar)
+    local exceptions = {
+        ["MP_CHAR_STAT_RALLY_ANIM"] = true,
+        ["MP_CHAR_ARMOUR_1_COUNT"] = true,
+        ["MP_CHAR_ARMOUR_2_COUNT"] = true,
+        ["MP_CHAR_ARMOUR_3_COUNT"] = true,
+        ["MP_CHAR_ARMOUR_4_COUNT"] = true,
+        ["MP_CHAR_ARMOUR_5_COUNT"] = true,
+    }
+
     if
-        MP_STATS_EXCEPTIONS[statName] or (
+        exceptions[statName] or (
             not startswith(statName, "MP_")
             and not startswith(statName, "MPPLY_")
         )
-     then
+    then
         return "MP" .. lastMpChar .. "_" .. statName
     end
 
@@ -461,16 +445,16 @@ local autoRefillSnacksAndArmors = menu.add_feature("Auto Refill Snacks & Armors"
         then
             local lastMpChar = stats.stat_get_int(gameplay.get_hash_key("MPPLY_LAST_MP_CHAR"), -1)
 
-            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NO_BOUGHT_YUM_SNACKS", lastMpChar)), USER_SNACKS_AND_ARMORS_TO_REFILL["NO_BOUGHT_YUM_SNACKS"], true)
-            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NO_BOUGHT_HEALTH_SNACKS", lastMpChar)), USER_SNACKS_AND_ARMORS_TO_REFILL["NO_BOUGHT_HEALTH_SNACKS"], true)
-            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NO_BOUGHT_EPIC_SNACKS", lastMpChar)), USER_SNACKS_AND_ARMORS_TO_REFILL["NO_BOUGHT_EPIC_SNACKS"], true)
-            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NUMBER_OF_ORANGE_BOUGHT", lastMpChar)), USER_SNACKS_AND_ARMORS_TO_REFILL["NUMBER_OF_ORANGE_BOUGHT"], true)
-            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NUMBER_OF_BOURGE_BOUGHT", lastMpChar)), USER_SNACKS_AND_ARMORS_TO_REFILL["NUMBER_OF_BOURGE_BOUGHT"], true)
-            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NUMBER_OF_CHAMP_BOUGHT", lastMpChar)), USER_SNACKS_AND_ARMORS_TO_REFILL["NUMBER_OF_CHAMP_BOUGHT"], true)
-            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("CIGARETTES_BOUGHT", lastMpChar)), USER_SNACKS_AND_ARMORS_TO_REFILL["CIGARETTES_BOUGHT"], true)
-            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NUMBER_OF_SPRUNK_BOUGHT", lastMpChar)), USER_SNACKS_AND_ARMORS_TO_REFILL["NUMBER_OF_SPRUNK_BOUGHT"], true)
+            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NO_BOUGHT_YUM_SNACKS", lastMpChar)), 30, true)
+            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NO_BOUGHT_HEALTH_SNACKS", lastMpChar)), 15, true)
+            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NO_BOUGHT_EPIC_SNACKS", lastMpChar)), 5, true)
+            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NUMBER_OF_ORANGE_BOUGHT", lastMpChar)), 10, true)
+            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NUMBER_OF_BOURGE_BOUGHT", lastMpChar)), 10, true)
+            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NUMBER_OF_CHAMP_BOUGHT", lastMpChar)), 5, true)
+            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("CIGARETTES_BOUGHT", lastMpChar)), 20, true)
+            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NUMBER_OF_SPRUNK_BOUGHT", lastMpChar)), 10, true)
             for i = 1, 5 do
-                stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("MP_CHAR_ARMOUR_" .. i .. "_COUNT", lastMpChar)), USER_SNACKS_AND_ARMORS_TO_REFILL["MP_CHAR_ARMOUR_" .. i .. "_COUNT"], true)
+                stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("MP_CHAR_ARMOUR_" .. i .. "_COUNT", lastMpChar)), 10, true)
             end
 
             system.wait(10000) -- No need to spam it.
@@ -542,11 +526,12 @@ autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT.max = 10
 menu.add_feature("       " .. string.rep(" -", 23), "action", myRootMenu.id)
 
 local autoBST = menu.add_feature("Auto Bull Shark Testosterone (BST)", "toggle", myRootMenu.id, function(f)
+    local get_bst__feat = menu.get_feature_by_hierarchy_key("online.services.bull_shark_testosterone")
     local playerVisible__startTime
     local player_died = false
 
     while f.on do
-        local get_bst
+        local get_bst = false
 
         if entity.is_entity_dead(player.player_ped()) then
             player_died = true
@@ -570,7 +555,7 @@ local autoBST = menu.add_feature("Auto Bull Shark Testosterone (BST)", "toggle",
                 network.is_session_started()
                 and player.get_host() ~= -1
             then
-                GET_BST__FEAT:toggle()
+                get_bst__feat:toggle()
             end
         end
 
