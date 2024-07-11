@@ -12,11 +12,12 @@ local scriptExitEventListener
 local SCRIPT_NAME <const> = "TRYHARD.lua"
 local SCRIPT_TITLE <const> = "TRYHARD"
 local SCRIPT_SETTINGS__PATH <const> = "scripts\\TRYHARD\\Settings.ini"
+local NATIVES <const> = require("lib\\natives2845")
 local HOME_PATH <const> = utils.get_appdata_path("PopstarDevs", "2Take1Menu")
 local TRUSTED_FLAGS <const> = {
     { name = "LUA_TRUST_STATS", menuName = "Trusted Stats", bitValue = 1 << 0, isRequiered = true },
     { name = "LUA_TRUST_SCRIPT_VARS", menuName = "Trusted Globals / Locals", bitValue = 1 << 1, isRequiered = false },
-    { name = "LUA_TRUST_NATIVES", menuName = "Trusted Natives", bitValue = 1 << 2, isRequiered = false },
+    { name = "LUA_TRUST_NATIVES", menuName = "Trusted Natives", bitValue = 1 << 2, isRequiered = true },
     { name = "LUA_TRUST_HTTP", menuName = "Trusted Http", bitValue = 1 << 3, isRequiered = false },
     { name = "LUA_TRUST_MEMORY", menuName = "Trusted Memory", bitValue = 1 << 4, isRequiered = false }
 }
@@ -431,7 +432,13 @@ local exitScriptFeat = menu.add_feature("#FF0000DD#Stop Script#DEFAULT#", "actio
 end)
 exitScriptFeat.hint = 'Stop "' .. SCRIPT_NAME .. '"'
 
-menu.add_feature("       " .. string.rep(" -", 23), "action", myRootMenu.id)
+menu.add_feature("<- - -  TRYHARD by IB_U_Z_Z_A_R_Dl  - - ->", "action", myRootMenu.id)
+
+local betterCrosshairMenu = menu.add_feature("Better Crosshair", "parent", myRootMenu.id)
+
+local hotkeySuicideMenu = menu.add_feature("Hotkey Suicide", "parent", myRootMenu.id)
+
+local hotkeyWeaponThermalVisionMenu = menu.add_feature("Hotkey Weapon Thermal Vision", "parent", myRootMenu.id)
 
 local autoRefillSnacksAndArmorsMenu = menu.add_feature("Auto Refill Snacks & Armors", "parent", myRootMenu.id)
 
@@ -523,7 +530,9 @@ local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT = menu.add_feature("Supe
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT.hint = 'Number of "Super Heavy Armor" to refill.'
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT.max = 10
 
-menu.add_feature("       " .. string.rep(" -", 23), "action", myRootMenu.id)
+local thermalVision = menu.add_feature("Thermal Vision", "toggle", myRootMenu.id)
+
+local noCombatRollCooldown = menu.add_feature("No Combat Roll Cooldown", "toggle", myRootMenu.id)
 
 local autoBST = menu.add_feature("Auto Bull Shark Testosterone (BST)", "toggle", myRootMenu.id, function(f)
     local get_bst__feat = menu.get_feature_by_hierarchy_key("online.services.bull_shark_testosterone")
@@ -533,7 +542,7 @@ local autoBST = menu.add_feature("Auto Bull Shark Testosterone (BST)", "toggle",
     while f.on do
         local get_bst = false
 
-        if entity.is_entity_dead(player.player_ped()) then
+        if NATIVES.PLAYER.IS_PLAYER_DEAD(player.player_id()) or entity.is_entity_dead(player.player_ped()) then
             player_died = true
         elseif player.is_player_playing(player.player_id()) then
             if player_died then
@@ -554,6 +563,15 @@ local autoBST = menu.add_feature("Auto Bull Shark Testosterone (BST)", "toggle",
             if
                 network.is_session_started()
                 and player.get_host() ~= -1
+                and not NATIVES.STREAMING.IS_PLAYER_SWITCH_IN_PROGRESS()
+                and NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("maintransition")) == 0
+                and (
+                    NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("pi_menu")) == 0
+                    and NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("am_pi_menu")) == 1
+                ) and (
+                    NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("main")) == 0
+                    and NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("freemode")) == 1
+                )
             then
                 get_bst__feat:toggle()
             end
@@ -563,6 +581,29 @@ local autoBST = menu.add_feature("Auto Bull Shark Testosterone (BST)", "toggle",
         -- TODO: Removes BST when un-toggled, unfortunately idk how to check if BST is currently active or not.
     end
 end)
+autoBST.hint = "Automatically gives you Bull Shark Testosterone whenever you die or its timer expires."
+
+menu.add_feature("<- - - - - - -  2Take1 shortcuts  - - - - - - ->", "action", myRootMenu.id)
+
+local infiniteAmmo = menu.add_feature("Infinite Ammo", "action", myRootMenu.id, function(f)
+    local feat = menu.get_feature_by_hierarchy_key("local.weapons.auto_refill_ammo")
+    feat.parent:toggle()
+    feat:select()
+end)
+
+local noWantedLevel = menu.add_feature("No Wanted Level", "action", myRootMenu.id, function(f)
+    local feat = menu.get_feature_by_hierarchy_key("local.player_options.lawless_mode")
+    feat.parent:toggle()
+    feat:select()
+end)
+
+local disablePhoneCalls = menu.add_feature("Disable Phone Calls", "action", myRootMenu.id, function(f)
+    local feat = menu.get_feature_by_hierarchy_key("local.misc.disable_phone_calls")
+    feat.parent:toggle()
+    feat:select()
+end)
+
+menu.add_feature("<- - - - - - - -  Script Settings  - - - - - - - ->", "action", myRootMenu.id)
 
 local settingsMenu = menu.add_feature("Settings", "parent", myRootMenu.id)
 settingsMenu.hint = "Options for the script."
@@ -585,7 +626,9 @@ ALL_SETTINGS = {
     {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT},
     {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT},
 
-    {key = "autoBST", defaultValue = false, feat = autoBST}
+    {key = "thermalVision", defaultValue = false, feat = thermalVision},
+    {key = "noCombatRollCooldown", defaultValue = false, feat = noCombatRollCooldown},
+    {key = "autoBST", defaultValue = false, feat = autoBST},
 }
 
 local loadSettings = menu.add_feature('Load Settings', "action", settingsMenu.id, function()
