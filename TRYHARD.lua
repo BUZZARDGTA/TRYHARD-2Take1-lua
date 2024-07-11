@@ -560,10 +560,7 @@ local autoBST = menu.add_feature("Auto Bull Shark Testosterone (BST)", "toggle",
         end
 
         system.yield()
-        -- TODO (removes bst when disabled toogle)
-        -- unfortunately idk how to check if BST is currently enabled or not.
-        --else
-        --    menu.trigger_command(bst_switch_command)
+        -- TODO: Removes BST when un-toggled, unfortunately idk how to check if BST is currently active or not.
     end
 end)
 
