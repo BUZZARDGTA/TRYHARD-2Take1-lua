@@ -582,7 +582,6 @@ local function exec_global(featureName, globalExecType, myGlobalFunction, params
         params.forceNotifyOnFailure = false
     end
 
-    SCRIPT_THIS_ONLINE_VERSION = "1.70"
     if SCRIPT_THIS_ONLINE_VERSION ~= SCRIPT_SUPPORTED_ONLINE_VERSION then
         if params.forceNotifyOnFailure or globalExecType == "set_global_f" or  globalExecType == "set_global_i" or globalExecType == "set_global_s" then
             menu.notify('Prevented executing an outdated Global.\nExpect "' .. featureName .. '" feature to be unstable.', SCRIPT_NAME, 12, COLOR.ORANGE)
