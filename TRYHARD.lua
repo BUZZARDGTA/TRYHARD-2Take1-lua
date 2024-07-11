@@ -562,40 +562,51 @@ myGlobals.online_thermal__bypass = function(playerID)
     return Global_1 + (playerID * Global_2) + unknown_3 + 1
 end
 
-local function exec_global(featureName, globalExecType, myGlobalFunction, state)
+local function exec_global(featureName, globalExecType, myGlobalFunction, params)
     --[[
     Parameters:
     featureName (string):
     globalExecType (string):
     myGlobalFunction (function):
-    state (int): Optional.
+    params: Optional.
+        State (bool):
+        notifyOnFailure (bool): Wathever you want or not to force displaying the "Prevented executing outdated Global" message.
 
     Returns:
     nil: The game version is not compatible with the given Global.
     bool The status returned from the given Global.
     ]]
-    -- TODO (debug): SCRIPT_THIS_ONLINE_VERSION = "1.70"
-    if SCRIPT_THIS_ONLINE_VERSION == SCRIPT_SUPPORTED_ONLINE_VERSION then
-        if globalExecType == "set_global_i" then
-            return script.set_global_i(myGlobalFunction(player.player_id()), state)
-        elseif globalExecType == "get_global_i" then
-            return script.get_global_i(myGlobalFunction(player.player_id()))
+
+    params = params or {}
+    if params.forceNotifyOnFailure == nil then
+        params.forceNotifyOnFailure = false
+    end
+
+    SCRIPT_THIS_ONLINE_VERSION = "1.70"
+    if SCRIPT_THIS_ONLINE_VERSION ~= SCRIPT_SUPPORTED_ONLINE_VERSION then
+        if params.forceNotifyOnFailure or globalExecType == "set_global_f" or  globalExecType == "set_global_i" or globalExecType == "set_global_s" then
+            menu.notify('Prevented executing an outdated Global.\nExpect "' .. featureName .. '" feature to be unstable.', SCRIPT_NAME, 12, COLOR.ORANGE)
         end
 
-        handle_script_exit({ hasScriptCrashed = true })
+        return
     end
 
-    if globalExecType == "set_global_f" or  globalExecType == "set_global_i" or globalExecType == "set_global_s" then
-        menu.notify('Prevented executing outdated Global.\nExpect "' .. featureName .. '" feature to be unstable.', SCRIPT_NAME, 6, COLOR.ORANGE)
+    if globalExecType == "set_global_i" then
+        return script.set_global_i(myGlobalFunction(player.player_id()), params.state)
+    elseif globalExecType == "get_global_i" then
+        return script.get_global_i(myGlobalFunction(player.player_id()))
     end
+
+    handle_script_exit({ hasScriptCrashed = true })
 end
 
-local thermalVision = menu.add_feature("Force Thermal Vision", "toggle", myRootMenu.id, function(f)
-    -- TODO: It annoys me that I don't actually makes uses of the "Prevented executing outdated Global." here.
+local forceThermalVision = menu.add_feature("Force Thermal Vision", "toggle", myRootMenu.id, function(f)
+    local notifyOnFailure__flag = true
+
     while true do
         if not f.on then
-            if exec_global("Thermal Vision", "get_global_i", myGlobals.online_thermal__bypass) == 1 then
-                exec_global("Thermal Vision", "set_global_i", myGlobals.online_thermal__bypass, 0)
+            if exec_global("Thermal Vision", "get_global_i", myGlobals.online_thermal__bypass, { forceNotifyOnFailure = notifyOnFailure__flag }) == 1 then
+                exec_global("Thermal Vision", "set_global_i", myGlobals.online_thermal__bypass, { state = 0 })
             end
 
             if NATIVES.GRAPHICS.GET_USINGSEETHROUGH() then
@@ -608,20 +619,24 @@ local thermalVision = menu.add_feature("Force Thermal Vision", "toggle", myRootM
         end
 
         if not NATIVES.GRAPHICS.GET_USINGSEETHROUGH() then
-            if exec_global("Thermal Vision", "get_global_i", myGlobals.online_thermal__bypass) == 0 then
-                exec_global("Thermal Vision", "set_global_i", myGlobals.online_thermal__bypass, 1)
+            local getGlobalResult = exec_global("Thermal Vision", "get_global_i", myGlobals.online_thermal__bypass, { forceNotifyOnFailure = notifyOnFailure__flag })
+            if getGlobalResult == 0 then
+                exec_global("Thermal Vision", "set_global_i", myGlobals.online_thermal__bypass, { state = 1 })
             end
             NATIVES.GRAPHICS.SET_SEETHROUGH(true)
 
-            if result ~= nil then -- If the bypass doesn't work, at least we can spam the native, it'll works with the MKII Heavy Sniper while aiming w it lmfao
+            -- If the bypass Global cannot be used, at least we can spam the native, it'll works with the MKII Heavy Sniper while aiming w it lmfao
+            if getGlobalResult ~= nil then
                 return
             end
+
+            notifyOnFailure__flag = false
         end
 
         system.yield()
     end
 end)
-thermalVision.hint = "Enables the thermal vision view."
+forceThermalVision.hint = "Enables the thermal vision view."
 
 local noCombatRollCooldown = menu.add_feature("No Combat Roll Cooldown", "toggle", myRootMenu.id)
 
@@ -717,9 +732,9 @@ ALL_SETTINGS = {
     {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT},
     {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT},
 
-    {key = "thermalVision", defaultValue = false, feat = thermalVision},
+    {key = "forceThermalVision", defaultValue = false, feat = forceThermalVision},
     {key = "noCombatRollCooldown", defaultValue = false, feat = noCombatRollCooldown},
-    {key = "autoBST", defaultValue = false, feat = autoBST},
+    {key = "autoBST", defaultValue = false, feat = autoBST}
 }
 
 local loadSettings = menu.add_feature('Load Settings', "action", settingsMenu.id, function()
