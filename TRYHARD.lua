@@ -12,11 +12,13 @@ local scriptExitEventListener
 local SCRIPT_NAME <const> = "TRYHARD.lua"
 local SCRIPT_TITLE <const> = "TRYHARD"
 local SCRIPT_SETTINGS__PATH <const> = "scripts\\TRYHARD\\Settings.ini"
+local SCRIPT_SUPPORTED_ONLINE_VERSION <const> = "1.69"
 local NATIVES <const> = require("lib\\natives2845")
+local SCRIPT_THIS_ONLINE_VERSION = NATIVES.NETWORK.GET_ONLINE_VERSION()
 local HOME_PATH <const> = utils.get_appdata_path("PopstarDevs", "2Take1Menu")
 local TRUSTED_FLAGS <const> = {
     { name = "LUA_TRUST_STATS", menuName = "Trusted Stats", bitValue = 1 << 0, isRequiered = true },
-    { name = "LUA_TRUST_SCRIPT_VARS", menuName = "Trusted Globals / Locals", bitValue = 1 << 1, isRequiered = false },
+    { name = "LUA_TRUST_SCRIPT_VARS", menuName = "Trusted Globals / Locals", bitValue = 1 << 1, isRequiered = true },
     { name = "LUA_TRUST_NATIVES", menuName = "Trusted Natives", bitValue = 1 << 2, isRequiered = true },
     { name = "LUA_TRUST_HTTP", menuName = "Trusted Http", bitValue = 1 << 3, isRequiered = false },
     { name = "LUA_TRUST_MEMORY", menuName = "Trusted Memory", bitValue = 1 << 4, isRequiered = false }
@@ -530,7 +532,96 @@ local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT = menu.add_feature("Supe
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT.hint = 'Number of "Super Heavy Armor" to refill.'
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT.max = 10
 
-local thermalVision = menu.add_feature("Thermal Vision", "toggle", myRootMenu.id)
+
+local myGlobals = {}
+
+myGlobals.online_thermal__bypass = function(playerID)
+    --[[
+    This function bypass so that you have thermal vision online all the time. (BEHAVIOUR WITHOUT BYPASS: Only apply thermal while scoping with MKII Heavy Sniper)
+
+    Parameters:
+    playerID (int): Your Player ID.
+
+    Returns:
+    uint32_t (int) The number returned from this Global.
+
+    Credits:
+    Thanks Gee-Skid for Thermal Vision source code (natives & 1.68 Globals).
+
+    More Infos:
+    These Globals are from 1.69 online version (build 3258)
+
+    How to update after new build update:
+    Global_1  --> (Global_1845281[iVar0 /*883*/].f_)
+    Global_2  --> (Global_1845281[iVar0 /*883*/].f_)
+    unknown_3 --> for i, in (800, 900) do ... |  Was 844 in 1.68, I do not know how to find this unknown type value other then using a for loop.
+    ]]
+    local Global_1 = 1845281
+    local Global_2 = 883
+    local unknown_3 = 860
+    return Global_1 + (playerID * Global_2) + unknown_3 + 1
+end
+
+local function exec_global(featureName, globalExecType, myGlobalFunction, state)
+    --[[
+    Parameters:
+    featureName (string):
+    globalExecType (string):
+    myGlobalFunction (function):
+    state (int): Optional.
+
+    Returns:
+    nil: The game version is not compatible with the given Global.
+    bool The status returned from the given Global.
+    ]]
+    -- TODO (debug): SCRIPT_THIS_ONLINE_VERSION = "1.70"
+    if SCRIPT_THIS_ONLINE_VERSION == SCRIPT_SUPPORTED_ONLINE_VERSION then
+        if globalExecType == "set_global_i" then
+            return script.set_global_i(myGlobalFunction(player.player_id()), state)
+        elseif globalExecType == "get_global_i" then
+            return script.get_global_i(myGlobalFunction(player.player_id()))
+        end
+
+        handle_script_exit({ hasScriptCrashed = true })
+    end
+
+    if globalExecType == "set_global_f" or  globalExecType == "set_global_i" or globalExecType == "set_global_s" then
+        menu.notify('Prevented executing outdated Global.\nExpect "' .. featureName .. '" feature to be unstable.', SCRIPT_NAME, 6, COLOR.ORANGE)
+    end
+end
+
+local thermalVision = menu.add_feature("Force Thermal Vision", "toggle", myRootMenu.id, function(f)
+    -- TODO: It annoys me that I don't actually makes uses of the "Prevented executing outdated Global." here.
+    while true do
+        if not f.on then
+            if exec_global("Thermal Vision", "get_global_i", myGlobals.online_thermal__bypass) == 1 then
+                exec_global("Thermal Vision", "set_global_i", myGlobals.online_thermal__bypass, 0)
+            end
+
+            if NATIVES.GRAPHICS.GET_USINGSEETHROUGH() then
+                NATIVES.GRAPHICS.SET_SEETHROUGH(false)
+            end
+
+            NATIVES.GRAPHICS.SEETHROUGH_RESET()
+
+            return
+        end
+
+        if not NATIVES.GRAPHICS.GET_USINGSEETHROUGH() then
+            if exec_global("Thermal Vision", "get_global_i", myGlobals.online_thermal__bypass) == 0 then
+                exec_global("Thermal Vision", "set_global_i", myGlobals.online_thermal__bypass, 1)
+            end
+            NATIVES.GRAPHICS.SET_SEETHROUGH(true)
+
+            if result ~= nil then -- If the bypass doesn't work, at least we can spam the native, it'll works with the MKII Heavy Sniper while aiming w it lmfao
+                return
+            end
+        end
+
+        system.yield()
+    end
+end)
+thermalVision.hint = "Enables the thermal vision view."
 
 local noCombatRollCooldown = menu.add_feature("No Combat Roll Cooldown", "toggle", myRootMenu.id)
 
