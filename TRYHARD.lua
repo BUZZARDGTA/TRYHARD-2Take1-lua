@@ -550,9 +550,9 @@ local idleCrosshair_Feat = menu.add_feature("Idle Crosshair", "toggle", idleCros
             or NATIVES.HUD.IS_NAVIGATING_MENU_CONTENT()
             or is_transition_active()
             or is_any_game_overlay_open()
-            or (hideIdleCrosshairInChatMenu_Feat and hideIdleCrosshairInChatMenu_Feat.on and NATIVES.HUD.IS_MP_TEXT_CHAT_TYPING())
-            or (hideIdleCrosshairInPhoneMenu_Feat and hideIdleCrosshairInPhoneMenu_Feat.on and is_phone_open())
-            or (hideIdleCrosshairInTwoTakeOneMenu_Feat and hideIdleCrosshairInTwoTakeOneMenu_Feat.on and menu.is_open())
+            or (hideIdleCrosshairInChatMenu_Feat.on and NATIVES.HUD.IS_MP_TEXT_CHAT_TYPING())
+            or (hideIdleCrosshairInPhoneMenu_Feat.on and is_phone_open())
+            or (hideIdleCrosshairInTwoTakeOneMenu_Feat.on and menu.is_open())
         ) or not (
             ui.is_hud_component_active(14)
             and NATIVES.HUD.IS_MINIMAP_RENDERING()
@@ -583,9 +583,8 @@ local idleCrosshair_Feat = menu.add_feature("Idle Crosshair", "toggle", idleCros
             playerPed = player.player_ped()
 
             if NATIVES.PED.IS_PED_IN_ANY_VEHICLE(playerPed, false) then
-                print(hideIdleCrosshairInVehicles_Feat)
                 if
-                    (hideIdleCrosshairInVehicles_Feat and hideIdleCrosshairInVehicles_Feat.on)
+                    hideIdleCrosshairInVehicles_Feat.on
                     or (
                         NATIVES.PLAYER.IS_PLAYER_FREE_AIMING(playerID)
                         or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, 190) -- CTaskMountThrowProjectile
