@@ -381,7 +381,7 @@ local function load_settings(params)
 
         local settings_content, err = read_file(SCRIPT_SETTINGS__PATH)
         if err then
-            menu.notify("Settings could not be loaded.", SCRIPT_TITLE, 6, COLOR.RED)
+            menu.notify("Settings file could not be read.", SCRIPT_TITLE, 6, COLOR.RED)
             handle_script_exit({ hasScriptCrashed = true })
             return areSettingsLoaded
         end
@@ -414,11 +414,12 @@ local function load_settings(params)
         end
     end
 
-    for setting, _ in pairs(params.settings_to_load) do
-        local resolvedSettingValue = get_collection_custom_value(ALL_SETTINGS, "key", setting, "defaultValue")
+    for settingKey, setting_Feat in pairs(params.settings_to_load) do
+        local defaultSettingValue = get_collection_custom_value(ALL_SETTINGS, "key", settingKey, "defaultValue")
+        local resolvedSettingValue = defaultSettingValue
 
-        if type(resolvedSettingValue) == "boolean" then
-            local settingLoadedValue, needRewriteCurrentSetting = custom_str_to_bool(settings_loaded[setting])
+        if type(defaultSettingValue) == "boolean" then
+            local settingLoadedValue, needRewriteCurrentSetting = custom_str_to_bool(settings_loaded[settingKey])
             if settingLoadedValue ~= nil then
                 resolvedSettingValue = settingLoadedValue
             end
@@ -426,25 +427,35 @@ local function load_settings(params)
                 needRewriteSettings = true
             end
 
-            params.settings_to_load[setting].on = resolvedSettingValue
-        elseif type(resolvedSettingValue) == "number" then
-            --  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            --  !! NEED TO IMPLEMENT IN ALL_SETTINGS, MAX and MIN or smth. !!
-            --  !! THIS CODE IS SUBJECT TO USER INJECTION                  !!
-            --  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-            -- Handle number case (integers and floats)
-            if math.floor(resolvedSettingValue) == resolvedSettingValue then -- It's an integer
-                local number = tonumber(settings_loaded[setting])
-                if number then
+            setting_Feat.on = resolvedSettingValue
+        elseif type(defaultSettingValue) == "number" then
+            --[[
+            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            !! NEED TO IMPLEMENT IN ALL_SETTINGS, MAX and MIN or smth. !!
+            !!         THIS CODE IS SUBJECT TO USER INJECTION          !!
+            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            ]]
+            if math.type(defaultSettingValue) == "integer" then
+                local number = tonumber(settings_loaded[settingKey])
+                if number and math.type(number) == "integer" then
                     resolvedSettingValue = number
                 else
                     needRewriteSettings = true
                 end
-            --else -- It's a float
-            end
 
-            params.settings_to_load[setting].value = resolvedSettingValue
+                setting_Feat.value = resolvedSettingValue
+            elseif math.type(defaultSettingValue) == "float" then
+                local number = tonumber(settings_loaded[settingKey])
+                if number and math.type(number) == "float" then
+                    resolvedSettingValue = number
+                else
+                    needRewriteSettings = true
+                end
+
+                setting_Feat.value = resolvedSettingValue  -- Note: 2Take1 represents idleCrosshairSize as 1.1000000238419 instead of 1.0. While this isn't technically an issue, it appears visually unappealing in the settings file.
+            else
+                handle_script_exit({ hasScriptCrashed = true })
+            end
         else
             handle_script_exit({ hasScriptCrashed = true })
         end
@@ -525,15 +536,15 @@ local idleCrosshairSpriteID <const> = scriptdraw.register_sprite("scripts\\TRYHA
 local idleCrosshairPos <const> = v2(scriptdraw.pos_pixel_to_rel_x(scriptdraw.pos_rel_to_pixel_x(0)), scriptdraw.pos_pixel_to_rel_y(scriptdraw.pos_rel_to_pixel_y(0)))
 local idleCrosshairDefaultColor <const> = rgba_to_int(255, 255, 255, 255)
 
-local idleCrosshairSize = 1
 local idleCrosshairColor = idleCrosshairDefaultColor
 
--- TODO: hideIdleCrosshairInInteractionMenu
--- TODO: hideIdleCrosshairInTwoTakeOneConsole
+local idleCrosshairSize_Feat
 local hideIdleCrosshairInVehicles_Feat
 local hideIdleCrosshairInChatMenu_Feat
 local hideIdleCrosshairInPhoneMenu_Feat
 local hideIdleCrosshairInTwoTakeOneMenu_Feat
+-- TODO: hideIdleCrosshairInInteractionMenu_Feat
+-- TODO: hideIdleCrosshairInTwoTakeOneConsole_Feat
 
 local idleCrosshair_Feat = menu.add_feature("Idle Crosshair", "toggle", idleCrosshairMenu_Feat.id, function(f)
     while f.on do
@@ -617,10 +628,11 @@ local idleCrosshair_Feat = menu.add_feature("Idle Crosshair", "toggle", idleCros
         end
 
         if drawCrosshair then
+            --print(idleCrosshairSize_Feat.value)
             scriptdraw.draw_sprite(
                 idleCrosshairSpriteID, -- id
                 idleCrosshairPos,      -- pos
-                idleCrosshairSize,   -- scale
+                idleCrosshairSize_Feat.value,   -- scale
                 0,                     -- rot
                 idleCrosshairColor   -- color
             )
@@ -629,7 +641,7 @@ local idleCrosshair_Feat = menu.add_feature("Idle Crosshair", "toggle", idleCros
 end)
 idleCrosshair_Feat.hint = "Always render a crosshair when you are not aiming with a gun."
 
-menu.add_feature("<- - - - - - - -  Options  - - - - - - - ->", "action", idleCrosshairMenu_Feat.id)
+menu.add_feature("<- - - - - - - - - -  Options  - - - - - - - - - ->", "action", idleCrosshairMenu_Feat.id)
 
 hideIdleCrosshairInVehicles_Feat = menu.add_feature("Hide Idle Crosshair in Vehicles", "toggle", idleCrosshairMenu_Feat.id)
 hideIdleCrosshairInVehicles_Feat.hint = "Stops the idle crosshair rendering when in vehicles."
@@ -643,6 +655,11 @@ hideIdleCrosshairInPhoneMenu_Feat.hint = "Stops the idle crosshair rendering whe
 hideIdleCrosshairInTwoTakeOneMenu_Feat = menu.add_feature("Hide Idle Crosshair if 2Take1 Opened", "toggle", idleCrosshairMenu_Feat.id)
 hideIdleCrosshairInTwoTakeOneMenu_Feat.hint = "Stops the idle crosshair rendering when the Stand menu is opened."
 
+idleCrosshairSize_Feat = menu.add_feature("Idle Crosshair Size", "autoaction_value_f", idleCrosshairMenu_Feat.id)
+idleCrosshairSize_Feat.hint = "Changes the rendered idle crosshair size."
+idleCrosshairSize_Feat.min = 0.20
+idleCrosshairSize_Feat.max = 1.50
+idleCrosshairSize_Feat.mod = 0.10
 local hotkeySuicideMenu_Feat = menu.add_feature("Hotkey Suicide", "parent", myRootMenu_Feat.id)
 
 local hotkeyWeaponThermalVisionMenu_Feat = menu.add_feature("Hotkey Weapon Thermal Vision", "parent", myRootMenu_Feat.id)
@@ -916,6 +933,8 @@ settingsMenu_Feat.hint = "Options for the script."
 
 ALL_SETTINGS = {
     {key = "idleCrosshair", defaultValue = false, feat = idleCrosshair_Feat},
+    {key = "idleCrosshairSize", defaultValue = 1.0, feat = idleCrosshairSize_Feat},
+
     {key = "hideIdleCrosshairInVehicles", defaultValue = true, feat = hideIdleCrosshairInVehicles_Feat},
     {key = "hideIdleCrosshairInChatMenu", defaultValue = true, feat = hideIdleCrosshairInChatMenu_Feat},
     {key = "hideIdleCrosshairInPhoneMenu", defaultValue = true, feat = hideIdleCrosshairInPhoneMenu_Feat},
