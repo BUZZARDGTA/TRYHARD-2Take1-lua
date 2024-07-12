@@ -1,5 +1,5 @@
 -- Author: IB_U_Z_Z_A_R_Dl
--- Description: A script that aims in helping TRYHARD people for Stand menu.
+-- Description: A script that aims in helping TRYHARD people for 2Take1 menu.
 -- GitHub Repository: https://github.com/Illegal-Services/TRYHARD-2Take1-Lua
 
 
@@ -26,7 +26,7 @@ local TRUSTED_FLAGS <const> = {
 ---- Global constants 1/2 END
 
 ---- Global functions 1/2 START
-local function rgb_to_int(R, G, B, A)
+local function rgba_to_int(R, G, B, A)
     A = A or 255
     return ((R&0x0ff)<<0x00)|((G&0x0ff)<<0x08)|((B&0x0ff)<<0x10)|((A&0x0ff)<<0x18)
 end
@@ -34,9 +34,9 @@ end
 
 ---- Global constants 2/2 START
 local COLOR <const> = {
-    RED = rgb_to_int(255, 0, 0, 255),
-    ORANGE = rgb_to_int(255, 165, 0, 255),
-    GREEN = rgb_to_int(0, 255, 0, 255)
+    RED = rgba_to_int(255, 0, 0, 255),
+    ORANGE = rgba_to_int(255, 165, 0, 255),
+    GREEN = rgba_to_int(0, 255, 0, 255)
 }
 ---- Global constants 2/2 END
 
@@ -64,8 +64,8 @@ local function ends_with_newline(str)
     return false
 end
 
-function read_file(file_path)
-    local file, err = io.open(file_path, "r")
+function read_file(filePath)
+    local file, err = io.open(filePath, "r")
     if err then
         return nil, err
     end
@@ -145,6 +145,88 @@ local function ADD_MP_INDEX(statName, lastMpChar)
     return statName
 end
 
+local function is_phone_open()
+	return (
+        NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("cellphone_flashhand")) > 0
+    ) and true or false
+end
+
+local function is_transition_active()
+    return (
+        NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("maintransition")) > 0
+        or (
+            NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("pi_menu")) == 0
+            and NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("am_pi_menu")) == 0
+        )
+        or (
+            NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("main")) == 0
+            and NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("freemode")) == 0
+        )
+    ) and true or false
+end
+
+local function is_any_game_overlay_open()
+    if NATIVES.HUD.IS_PAUSE_MENU_ACTIVE() then
+        -- Doesn't work in SP
+        return true
+    end
+
+    local scripts_list = {
+        "maintransition",
+        "pausemenu",
+        "pausemenucareerhublaunch",
+        "pausemenu_example",
+        "pausemenu_map",
+        "pausemenu_multiplayer",
+        "pausemenu_sp_repeat",
+        "apparcadebusiness",
+        "apparcadebusinesshub",
+        "appavengeroperations",
+        "appbailoffice",
+        "appbikerbusiness",
+        "appbroadcast",
+        "appbunkerbusiness",
+        "appbusinesshub",
+        "appcamera",
+        "appchecklist",
+        "appcontacts",
+        "appcovertops",
+        "appemail",
+        "appextraction",
+        "appfixersecurity",
+        "apphackertruck",
+        "apphs_sleep",
+        "appimportexport",
+        "appinternet",
+        "appjipmp",
+        "appmedia",
+        "appmpbossagency",
+        "appmpemail",
+        "appmpjoblistnew",
+        "apporganiser",
+        "appprogresshub",
+        "apprepeatplay",
+        "appsecurohack",
+        "appsecuroserv",
+        "appsettings",
+        "appsidetask",
+        "appsmuggler",
+        "apptextmessage",
+        "apptrackify",
+        "appvinewoodmenu",
+        "appvlsi",
+        "appzit",
+    }
+
+    for _, app in ipairs(scripts_list) do
+        if NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key(app)) > 0 then
+            return true
+        end
+    end
+
+    return false
+end
+
 local function is_thread_runnning(threadId)
     if threadId and not menu.has_thread_finished(threadId) then
         return true
@@ -191,7 +273,8 @@ local function handle_script_exit(params)
     end
 
     if params.hasScriptCrashed then
-        menu.notify("Oh no... Script crashed:(\nYou gotta restart it manually.", SCRIPT_NAME, 6, COLOR.RED)
+        menu.notify("Oh no... Script crashed:(\nYou gotta restart it manually.", SCRIPT_NAME, 12, COLOR.RED)
+        error()
     end
 
     menu.exit()
@@ -233,46 +316,46 @@ local function save_settings(params)
 end
 
 local function load_settings(params)
-    local function custom_str_to_bool(string, only_match_against)
+    local function custom_str_to_bool(string, onlyMatchAgainst)
         --[[
         This function returns the boolean value represented by the string for lowercase or any case variation;
         otherwise, nil.
 
         Args:
             string (str): The boolean string to be checked.
-            (optional) only_match_against (bool | None): If provided, the only boolean value to match against.
+            (optional) onlyMatchAgainst (bool | None): If provided, the only boolean value to match against.
         ]]
-        local need_rewrite_current_setting = false
-        local resolved_value = nil
+        local needRewriteCurrentSetting = false
+        local resolvedValue
 
         if string == nil then
             return nil, true -- Input is not a valid string
         end
 
-        local string_lower = string:lower()
+        local stringLower = string:lower()
 
-        if string_lower == "true" then
-            resolved_value = true
-        elseif string_lower == "false" then
-            resolved_value = false
+        if stringLower == "true" then
+            resolvedValue = true
+        elseif stringLower == "false" then
+            resolvedValue = false
         end
 
-        if resolved_value == nil then
+        if resolvedValue == nil then
             return nil, true -- Input is not a valid boolean value
         end
 
         if (
-            only_match_against ~= nil
-            and only_match_against ~= resolved_value
+            onlyMatchAgainst ~= nil
+            and onlyMatchAgainst ~= resolvedValue
         ) then
             return nil, true -- Input does not match the specified boolean value
         end
 
-        if string ~= tostring(resolved_value) then
-            need_rewrite_current_setting = true
+        if string ~= tostring(resolvedValue) then
+            needRewriteCurrentSetting = true
         end
 
-        return resolved_value, need_rewrite_current_setting
+        return resolvedValue, needRewriteCurrentSetting
     end
 
     params = params or {}
@@ -427,24 +510,147 @@ end
 
 
 -- === Main Menu Features === --
-local myRootMenu = menu.add_feature(SCRIPT_TITLE, "parent", 0)
+local myRootMenu_Feat = menu.add_feature(SCRIPT_TITLE, "parent", 0)
 
-local exitScriptFeat = menu.add_feature("#FF0000DD#Stop Script#DEFAULT#", "action", myRootMenu.id, function(feat, pid)
+local exitScript_Feat = menu.add_feature("#FF0000DD#Stop Script#DEFAULT#", "action", myRootMenu_Feat.id, function(feat, pid)
     handle_script_exit()
 end)
-exitScriptFeat.hint = 'Stop "' .. SCRIPT_NAME .. '"'
+exitScript_Feat.hint = 'Stop "' .. SCRIPT_NAME .. '"'
 
-menu.add_feature("<- - -  TRYHARD by IB_U_Z_Z_A_R_Dl  - - ->", "action", myRootMenu.id)
+menu.add_feature("<- - -  TRYHARD by IB_U_Z_Z_A_R_Dl  - - ->", "action", myRootMenu_Feat.id)
 
-local betterCrosshairMenu = menu.add_feature("Better Crosshair", "parent", myRootMenu.id)
+local idleCrosshairMenu_Feat = menu.add_feature("Idle Crosshair", "parent", myRootMenu_Feat.id)
 
-local hotkeySuicideMenu = menu.add_feature("Hotkey Suicide", "parent", myRootMenu.id)
+local idleCrosshairSpriteID <const> = scriptdraw.register_sprite("scripts\\TRYHARD\\46.png")
+local idleCrosshairPos <const> = v2(scriptdraw.pos_pixel_to_rel_x(scriptdraw.pos_rel_to_pixel_x(0)), scriptdraw.pos_pixel_to_rel_y(scriptdraw.pos_rel_to_pixel_y(0)))
+local idleCrosshairDefaultColor <const> = rgba_to_int(255, 255, 255, 255)
 
-local hotkeyWeaponThermalVisionMenu = menu.add_feature("Hotkey Weapon Thermal Vision", "parent", myRootMenu.id)
+local idleCrosshairSize = 1
+local idleCrosshairColor = idleCrosshairDefaultColor
 
-local autoRefillSnacksAndArmorsMenu = menu.add_feature("Auto Refill Snacks & Armors", "parent", myRootMenu.id)
+-- TODO: hideIdleCrosshairInInteractionMenu
+-- TODO: hideIdleCrosshairInTwoTakeOneConsole
+local hideIdleCrosshairInVehicles_Feat
+local hideIdleCrosshairInChatMenu_Feat
+local hideIdleCrosshairInPhoneMenu_Feat
+local hideIdleCrosshairInTwoTakeOneMenu_Feat
 
-local autoRefillSnacksAndArmors = menu.add_feature("Auto Refill Snacks & Armors", "toggle", autoRefillSnacksAndArmorsMenu.id, function(f)
+local idleCrosshair_Feat = menu.add_feature("Idle Crosshair", "toggle", idleCrosshairMenu_Feat.id, function(f)
+    while f.on do
+        system.yield()
+
+        local drawCrosshair = true
+        local playerID
+        local playerPed
+
+        if (
+            NATIVES.HUD.IS_PAUSE_MENU_ACTIVE()
+            or NATIVES.HUD.IS_WARNING_MESSAGE_ACTIVE()
+            or NATIVES.HUD.IS_WARNING_MESSAGE_READY_FOR_CONTROL()
+            or NATIVES.HUD.IS_NAVIGATING_MENU_CONTENT()
+            or is_transition_active()
+            or is_any_game_overlay_open()
+            or (hideIdleCrosshairInChatMenu_Feat and hideIdleCrosshairInChatMenu_Feat.on and NATIVES.HUD.IS_MP_TEXT_CHAT_TYPING())
+            or (hideIdleCrosshairInPhoneMenu_Feat and hideIdleCrosshairInPhoneMenu_Feat.on and is_phone_open())
+            or (hideIdleCrosshairInTwoTakeOneMenu_Feat and hideIdleCrosshairInTwoTakeOneMenu_Feat.on and menu.is_open())
+        ) or not (
+            ui.is_hud_component_active(14)
+            and NATIVES.HUD.IS_MINIMAP_RENDERING()
+        ) then
+            drawCrosshair = false
+        end
+
+        if drawCrosshair then
+            playerID = player.player_id()
+
+            if (
+                cutscene.is_cutscene_playing()
+                or cutscene.is_cutscene_active()
+                or NATIVES.NETWORK.NETWORK_IS_PLAYER_IN_MP_CUTSCENE(playerID)
+                or NATIVES.NETWORK.IS_PLAYER_IN_CUTSCENE(playerID)
+                or NATIVES.NETWORK.NETWORK_IS_PLAYER_FADING(playerID)
+                or NATIVES.PLAYER.IS_PLAYER_DEAD(playerID)
+            ) or not (
+                NATIVES.NETWORK.NETWORK_IS_PLAYER_CONNECTED(playerID)
+                and NATIVES.NETWORK.NETWORK_IS_PLAYER_ACTIVE(playerID)
+                and NATIVES.PLAYER.IS_PLAYER_PLAYING(playerID)
+            ) then
+                drawCrosshair = false
+            end
+        end
+
+        if drawCrosshair then
+            playerPed = player.player_ped()
+
+            if NATIVES.PED.IS_PED_IN_ANY_VEHICLE(playerPed, false) then
+                print(hideIdleCrosshairInVehicles_Feat)
+                if
+                    (hideIdleCrosshairInVehicles_Feat and hideIdleCrosshairInVehicles_Feat.on)
+                    or (
+                        NATIVES.PLAYER.IS_PLAYER_FREE_AIMING(playerID)
+                        or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, 190) -- CTaskMountThrowProjectile
+                    )
+                then
+                    drawCrosshair = false
+                end
+            else
+                if
+                    NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, 15)     -- CTaskDoNothing (scripted player moves (ex: when reaching a laptop))
+                    or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, 135) -- CTaskSynchronizedScene (ex:player using laptop / transitions)
+                    or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, 997) -- CTaskDyingDead
+                    or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, 289) -- CTaskAimAndThrowProjectile -- Downside is that it adds the [BUG] bellow...
+                then
+                    drawCrosshair = false
+                end
+
+                if (
+                    NATIVES.PLAYER.IS_PLAYER_FREE_AIMING(playerID)
+                    and NATIVES.WEAPON.IS_PED_WEAPON_READY_TO_SHOOT(playerPed)
+                    and NATIVES.WEAPON.GET_SELECTED_PED_WEAPON(playerPed) ~= gameplay.get_hash_key("weapon_hominglauncher") -- Alternative: WEAPON.GET_CURRENT_PED_WEAPON
+                ) and not (
+                    NATIVES.PED.IS_PED_SWITCHING_WEAPON(playerPed)
+                ) then
+                    -- [BUG]: When the player aims in 1rd person view with a "ThrowProjectile", the crosshair is not rendering while not aiming.
+                    -- [BUG]: When the player aims in 3rd person view, for a short moment it doesn't have any crosshair. (this is due to camera adjusting)
+                    drawCrosshair = false
+                end
+            end
+        end
+
+        if drawCrosshair then
+            scriptdraw.draw_sprite(
+                idleCrosshairSpriteID, -- id
+                idleCrosshairPos,      -- pos
+                idleCrosshairSize,   -- scale
+                0,                     -- rot
+                idleCrosshairColor   -- color
+            )
+        end
+    end
+end)
+idleCrosshair_Feat.hint = "Always render a crosshair when you are not aiming with a gun."
+
+menu.add_feature("<- - - - - - - -  Options  - - - - - - - ->", "action", idleCrosshairMenu_Feat.id)
+
+hideIdleCrosshairInVehicles_Feat = menu.add_feature("Hide Idle Crosshair in Vehicles", "toggle", idleCrosshairMenu_Feat.id)
+hideIdleCrosshairInVehicles_Feat.hint = "Stops the idle crosshair rendering when in vehicles."
+
+hideIdleCrosshairInChatMenu_Feat = menu.add_feature("Hide Idle Crosshair if Chat Opened", "toggle", idleCrosshairMenu_Feat.id)
+hideIdleCrosshairInChatMenu_Feat.hint = "Stops the idle crosshair rendering when the chat menu is opened."
+
+hideIdleCrosshairInPhoneMenu_Feat = menu.add_feature("Hide Idle Crosshair if Phone Opened", "toggle", idleCrosshairMenu_Feat.id)
+hideIdleCrosshairInPhoneMenu_Feat.hint = "Stops the idle crosshair rendering when the phone menu is opened."
+
+hideIdleCrosshairInTwoTakeOneMenu_Feat = menu.add_feature("Hide Idle Crosshair if 2Take1 Opened", "toggle", idleCrosshairMenu_Feat.id)
+hideIdleCrosshairInTwoTakeOneMenu_Feat.hint = "Stops the idle crosshair rendering when the Stand menu is opened."
+
+local hotkeySuicideMenu_Feat = menu.add_feature("Hotkey Suicide", "parent", myRootMenu_Feat.id)
+
+local hotkeyWeaponThermalVisionMenu_Feat = menu.add_feature("Hotkey Weapon Thermal Vision", "parent", myRootMenu_Feat.id)
+
+local autoRefillSnacksAndArmorsMenu_Feat = menu.add_feature("Auto Refill Snacks & Armors", "parent", myRootMenu_Feat.id)
+
+local autoRefillSnacksAndArmors_Feat = menu.add_feature("Auto Refill Snacks & Armors", "toggle", autoRefillSnacksAndArmorsMenu_Feat.id, function(f)
     while f.on do
         system.yield()
 
@@ -470,67 +676,63 @@ local autoRefillSnacksAndArmors = menu.add_feature("Auto Refill Snacks & Armors"
         end
     end
 end)
-autoRefillSnacksAndArmors.hint = "Automatically refill selected Snacks & Armor every 10 seconds."
+autoRefillSnacksAndArmors_Feat.hint = "Automatically refill selected Snacks & Armor every 10 seconds."
 
-menu.add_feature("---------------------------------------", "action", autoRefillSnacksAndArmorsMenu.id)
-menu.add_feature("Snacks to Refill:", "action", autoRefillSnacksAndArmorsMenu.id)
-menu.add_feature("---------------------------------------", "action", autoRefillSnacksAndArmorsMenu.id)
+menu.add_feature("<- - - - - - - -  Snacks to Refill  - - - - - - - ->", "action", autoRefillSnacksAndArmorsMenu_Feat.id)
 
-local autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS = menu.add_feature("P'S & Q's", "autoaction_value_i", autoRefillSnacksAndArmorsMenu.id)
-autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS.hint = 'Number of "P\'S & Q\'s" to refill.'
-autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS.max = 30
+local autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat = menu.add_feature("P'S & Q's", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
+autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat.hint = 'Number of "P\'S & Q\'s" to refill.'
+autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat.max = 30
 
-local autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS = menu.add_feature("EgoChaser", "autoaction_value_i", autoRefillSnacksAndArmorsMenu.id)
-autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS.hint = 'Number of "EgoChaser" to refill.'
-autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS.max = 15
+local autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat = menu.add_feature("EgoChaser", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
+autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat.hint = 'Number of "EgoChaser" to refill.'
+autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat.max = 15
 
-local autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS = menu.add_feature('Meteorite', "autoaction_value_i", autoRefillSnacksAndArmorsMenu.id)
-autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS.hint = 'Number of "Meteorite" to refill.'
-autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS.max = 5
+local autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat = menu.add_feature('Meteorite', "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
+autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat.hint = 'Number of "Meteorite" to refill.'
+autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat.max = 5
 
-local autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT = menu.add_feature("eCola", "autoaction_value_i", autoRefillSnacksAndArmorsMenu.id)
-autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT.hint = 'Number of "eCola" to refill.'
-autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT.max = 10
+local autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat = menu.add_feature("eCola", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
+autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat.hint = 'Number of "eCola" to refill.'
+autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat.max = 10
 
-local autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT = menu.add_feature("Pisswasser", "autoaction_value_i", autoRefillSnacksAndArmorsMenu.id)
-autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT.hint = 'Number of "Pisswasser" to refill.'
-autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT.max = 10
+local autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat = menu.add_feature("Pisswasser", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
+autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat.hint = 'Number of "Pisswasser" to refill.'
+autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat.max = 10
 
-local autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT = menu.add_feature("Blêuter'd Champagne", "autoaction_value_i", autoRefillSnacksAndArmorsMenu.id)
-autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT.hint = 'Number of "Blêuter\'d Champagne" to refill.'
-autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT.max = 5
+local autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat = menu.add_feature("Blêuter'd Champagne", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
+autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat.hint = 'Number of "Blêuter\'d Champagne" to refill.'
+autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat.max = 5
 
-local autoRefillSnacksAndArmors__CIGARETTES_BOUGHT = menu.add_feature("Smokes", "autoaction_value_i", autoRefillSnacksAndArmorsMenu.id)
-autoRefillSnacksAndArmors__CIGARETTES_BOUGHT.hint = 'Number of "Smokes" to refill.'
-autoRefillSnacksAndArmors__CIGARETTES_BOUGHT.max = 20
+local autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat = menu.add_feature("Smokes", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
+autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat.hint = 'Number of "Smokes" to refill.'
+autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat.max = 20
 
-local autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT = menu.add_feature("Sprunk", "autoaction_value_i", autoRefillSnacksAndArmorsMenu.id)
-autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT.hint = 'Number of "Sprunk" to refill.'
-autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT.max = 10
+local autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat = menu.add_feature("Sprunk", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
+autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat.hint = 'Number of "Sprunk" to refill.'
+autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat.max = 10
 
-menu.add_feature("---------------------------------------", "action", autoRefillSnacksAndArmorsMenu.id)
-menu.add_feature("Armors to Refill:", "action", autoRefillSnacksAndArmorsMenu.id)
-menu.add_feature("---------------------------------------", "action", autoRefillSnacksAndArmorsMenu.id)
+menu.add_feature("<- - - - - - - - -  Armors to Refill  - - - - - - - - ->", "action", autoRefillSnacksAndArmorsMenu_Feat.id)
 
-local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT = menu.add_feature("Super Light Armor", "autoaction_value_i", autoRefillSnacksAndArmorsMenu.id)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT.hint = 'Number of "Super Light Armor" to refill.'
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT.max = 10
+local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat = menu.add_feature("Super Light Armor", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat.hint = 'Number of "Super Light Armor" to refill.'
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat.max = 10
 
-local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT = menu.add_feature("Light Armor", "autoaction_value_i", autoRefillSnacksAndArmorsMenu.id)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT.hint = 'Number of "Light Armor" to refill.'
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT.max = 10
+local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat = menu.add_feature("Light Armor", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat.hint = 'Number of "Light Armor" to refill.'
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat.max = 10
 
-local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT = menu.add_feature("Standard Armor", "autoaction_value_i", autoRefillSnacksAndArmorsMenu.id)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT.hint = 'Number of "Standard Armor" to refill.'
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT.max = 10
+local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat = menu.add_feature("Standard Armor", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat.hint = 'Number of "Standard Armor" to refill.'
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat.max = 10
 
-local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT = menu.add_feature("Heavy Armor", "autoaction_value_i", autoRefillSnacksAndArmorsMenu.id)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT.hint = 'Number of "Heavy Armor" to refill.'
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT.max = 10
+local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat = menu.add_feature("Heavy Armor", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat.hint = 'Number of "Heavy Armor" to refill.'
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat.max = 10
 
-local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT = menu.add_feature("Super Heavy Armor", "autoaction_value_i", autoRefillSnacksAndArmorsMenu.id)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT.hint = 'Number of "Super Heavy Armor" to refill.'
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT.max = 10
+local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat = menu.add_feature("Super Heavy Armor", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.hint = 'Number of "Super Heavy Armor" to refill.'
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.max = 10
 
 
 local myGlobals = {}
@@ -599,7 +801,7 @@ local function exec_global(featureName, globalExecType, myGlobalFunction, params
     handle_script_exit({ hasScriptCrashed = true })
 end
 
-local forceThermalVision = menu.add_feature("Force Thermal Vision", "toggle", myRootMenu.id, function(f)
+local forceThermalVision_Feat = menu.add_feature("Force Thermal Vision", "toggle", myRootMenu_Feat.id, function(f)
     local notifyOnFailure__flag = true
 
     while true do
@@ -635,30 +837,30 @@ local forceThermalVision = menu.add_feature("Force Thermal Vision", "toggle", my
         system.yield()
     end
 end)
-forceThermalVision.hint = "Enables the thermal vision view."
+forceThermalVision_Feat.hint = "Enables the thermal vision view."
 
-local noCombatRollCooldown = menu.add_feature("No Combat Roll Cooldown", "toggle", myRootMenu.id)
+local noCombatRollCooldown_Feat = menu.add_feature("No Combat Roll Cooldown", "toggle", myRootMenu_Feat.id)
 
-local autoBST = menu.add_feature("Auto Bull Shark Testosterone (BST)", "toggle", myRootMenu.id, function(f)
-    local get_bst__feat = menu.get_feature_by_hierarchy_key("online.services.bull_shark_testosterone")
-    local playerVisible__startTime
-    local player_died = false
+local autoBST_Feat = menu.add_feature("Auto Bull Shark Testosterone (BST)", "toggle", myRootMenu_Feat.id, function(f)
+    local getBst_Feat = menu.get_feature_by_hierarchy_key("online.services.bull_shark_testosterone")
+    local playerVisible_startTime
+    local playerDied = false
 
     while f.on do
         local get_bst = false
 
         if NATIVES.PLAYER.IS_PLAYER_DEAD(player.player_id()) or entity.is_entity_dead(player.player_ped()) then
-            player_died = true
+            playerDied = true
         elseif player.is_player_playing(player.player_id()) then
-            if player_died then
-                if playerVisible__startTime then
-                    if (os.clock() - playerVisible__startTime) >= 1 then -- 0.5 is the strict minimal.
-                        playerVisible__startTime = nil
-                        player_died = nil
+            if playerDied then
+                if playerVisible_startTime then
+                    if (os.clock() - playerVisible_startTime) >= 1 then -- 0.5 is the strict minimal.
+                        playerVisible_startTime = nil
+                        playerDied = nil
                         get_bst = true
                     end
                 else
-                    playerVisible__startTime = os.clock()
+                    playerVisible_startTime = os.clock()
                 end
             else
                 get_bst = true
@@ -678,7 +880,7 @@ local autoBST = menu.add_feature("Auto Bull Shark Testosterone (BST)", "toggle",
                     and NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("freemode")) == 1
                 )
             then
-                get_bst__feat:toggle()
+                getBst_Feat:toggle()
             end
         end
 
@@ -686,65 +888,71 @@ local autoBST = menu.add_feature("Auto Bull Shark Testosterone (BST)", "toggle",
         -- TODO: Removes BST when un-toggled, unfortunately idk how to check if BST is currently active or not.
     end
 end)
-autoBST.hint = "Automatically gives you Bull Shark Testosterone whenever you die or its timer expires."
+autoBST_Feat.hint = "Automatically gives you Bull Shark Testosterone whenever you die or its timer expires."
 
-menu.add_feature("<- - - - - - -  2Take1 shortcuts  - - - - - - ->", "action", myRootMenu.id)
+menu.add_feature("<- - - - - - -  2Take1 shortcuts  - - - - - - ->", "action", myRootMenu_Feat.id)
 
-local infiniteAmmo = menu.add_feature("Infinite Ammo", "action", myRootMenu.id, function(f)
+local infiniteAmmo_Feat = menu.add_feature("Infinite Ammo", "action", myRootMenu_Feat.id, function(f)
     local feat = menu.get_feature_by_hierarchy_key("local.weapons.auto_refill_ammo")
     feat.parent:toggle()
     feat:select()
 end)
 
-local noWantedLevel = menu.add_feature("No Wanted Level", "action", myRootMenu.id, function(f)
+local noWantedLevel_Feat = menu.add_feature("No Wanted Level", "action", myRootMenu_Feat.id, function(f)
     local feat = menu.get_feature_by_hierarchy_key("local.player_options.lawless_mode")
     feat.parent:toggle()
     feat:select()
 end)
 
-local disablePhoneCalls = menu.add_feature("Disable Phone Calls", "action", myRootMenu.id, function(f)
+local disablePhoneCalls_Feat = menu.add_feature("Disable Phone Calls", "action", myRootMenu_Feat.id, function(f)
     local feat = menu.get_feature_by_hierarchy_key("local.misc.disable_phone_calls")
     feat.parent:toggle()
     feat:select()
 end)
 
-menu.add_feature("<- - - - - - - -  Script Settings  - - - - - - - ->", "action", myRootMenu.id)
+menu.add_feature("<- - - - - - - -  Script Settings  - - - - - - - ->", "action", myRootMenu_Feat.id)
 
-local settingsMenu = menu.add_feature("Settings", "parent", myRootMenu.id)
-settingsMenu.hint = "Options for the script."
+local settingsMenu_Feat = menu.add_feature("Settings", "parent", myRootMenu_Feat.id)
+settingsMenu_Feat.hint = "Options for the script."
 
 ALL_SETTINGS = {
-    {key = "autoRefillSnacksAndArmors", defaultValue = true, feat = autoRefillSnacksAndArmors},
+    {key = "idleCrosshair", defaultValue = false, feat = idleCrosshair_Feat},
+    {key = "hideIdleCrosshairInVehicles", defaultValue = true, feat = hideIdleCrosshairInVehicles_Feat},
+    {key = "hideIdleCrosshairInChatMenu", defaultValue = true, feat = hideIdleCrosshairInChatMenu_Feat},
+    {key = "hideIdleCrosshairInPhoneMenu", defaultValue = true, feat = hideIdleCrosshairInPhoneMenu_Feat},
+    {key = "hideIdleCrosshairInTwoTakeOneMenu", defaultValue = true, feat = hideIdleCrosshairInTwoTakeOneMenu_Feat},
 
-    {key = "autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS", defaultValue = 30, feat = autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS},
-    {key = "autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS", defaultValue = 15, feat = autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS},
-    {key = "autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS", defaultValue = 5, feat = autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS},
-    {key = "autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT", defaultValue = 10, feat = autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT},
-    {key = "autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT", defaultValue = 10, feat = autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT},
-    {key = "autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT", defaultValue = 5, feat = autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT},
-    {key = "autoRefillSnacksAndArmors__CIGARETTES_BOUGHT", defaultValue = 20, feat = autoRefillSnacksAndArmors__CIGARETTES_BOUGHT},
-    {key = "autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT", defaultValue = 10, feat = autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT},
+    {key = "autoRefillSnacksAndArmors", defaultValue = false, feat = autoRefillSnacksAndArmors_Feat},
 
-    {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT},
-    {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT},
-    {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT},
-    {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT},
-    {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT},
+    {key = "autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS", defaultValue = 30, feat = autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat},
+    {key = "autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS", defaultValue = 15, feat = autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat},
+    {key = "autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS", defaultValue = 5, feat = autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat},
+    {key = "autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT", defaultValue = 10, feat = autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat},
+    {key = "autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT", defaultValue = 10, feat = autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat},
+    {key = "autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT", defaultValue = 5, feat = autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat},
+    {key = "autoRefillSnacksAndArmors__CIGARETTES_BOUGHT", defaultValue = 20, feat = autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat},
+    {key = "autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT", defaultValue = 10, feat = autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat},
 
-    {key = "forceThermalVision", defaultValue = false, feat = forceThermalVision},
-    {key = "noCombatRollCooldown", defaultValue = false, feat = noCombatRollCooldown},
-    {key = "autoBST", defaultValue = false, feat = autoBST}
+    {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat},
+    {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat},
+    {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat},
+    {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat},
+    {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat},
+
+    {key = "forceThermalVision", defaultValue = false, feat = forceThermalVision_Feat},
+    {key = "noCombatRollCooldown", defaultValue = false, feat = noCombatRollCooldown_Feat},
+    {key = "autoBST", defaultValue = false, feat = autoBST_Feat},
 }
 
-local loadSettings = menu.add_feature('Load Settings', "action", settingsMenu.id, function()
+local loadSettings_Feat = menu.add_feature('Load Settings', "action", settingsMenu_Feat.id, function()
     load_settings()
 end)
-loadSettings.hint = 'Load saved settings from your file: "' .. HOME_PATH .. "\\" .. SCRIPT_SETTINGS__PATH .. '".\n\nDeleting this file will apply the default settings.'
+loadSettings_Feat.hint = 'Load saved settings from your file: "' .. HOME_PATH .. "\\" .. SCRIPT_SETTINGS__PATH .. '".\n\nDeleting this file will apply the default settings.'
 
-local saveSettings = menu.add_feature('Save Settings', "action", settingsMenu.id, function()
+local saveSettings_Feat = menu.add_feature('Save Settings', "action", settingsMenu_Feat.id, function()
     save_settings()
 end)
-saveSettings.hint = 'Save your current settings to the file: "' .. HOME_PATH .. "\\" .. SCRIPT_SETTINGS__PATH .. '".'
+saveSettings_Feat.hint = 'Save your current settings to the file: "' .. HOME_PATH .. "\\" .. SCRIPT_SETTINGS__PATH .. '".'
 
 
 load_settings({ isScriptStartup = true })
