@@ -280,6 +280,43 @@ local function handle_script_exit(params)
     menu.exit()
 end
 
+local function exec_global(featureName, globalExecType, myGlobalFunction, params)
+    --[[
+    Parameters:
+    featureName (string):
+    globalExecType (string):
+    myGlobalFunction (function):
+    params: Optional.
+        State (bool):
+        notifyOnFailure (bool): Wathever you want or not to force displaying the "Prevented executing outdated Global" message.
+
+    Returns:
+    nil: The game version is not compatible with the given Global.
+    bool The status returned from the given Global.
+    ]]
+
+    params = params or {}
+    if params.forceNotifyOnFailure == nil then
+        params.forceNotifyOnFailure = false
+    end
+
+    if SCRIPT_THIS_ONLINE_VERSION ~= SCRIPT_SUPPORTED_ONLINE_VERSION then
+        if params.forceNotifyOnFailure or globalExecType == "set_global_f" or  globalExecType == "set_global_i" or globalExecType == "set_global_s" then
+            menu.notify('Prevented executing an outdated Global.\nExpect "' .. featureName .. '" feature to be unstable.', SCRIPT_NAME, 12, COLOR.ORANGE)
+        end
+
+        return
+    end
+
+    if globalExecType == "set_global_i" then
+        return script.set_global_i(myGlobalFunction(player.player_id()), params.state)
+    elseif globalExecType == "get_global_i" then
+        return script.get_global_i(myGlobalFunction(player.player_id()))
+    end
+
+    handle_script_exit({ hasScriptCrashed = true })
+end
+
 local function save_settings(params)
     params = params or {}
     if params.wasSettingsCorrupted == nil then
@@ -630,11 +667,11 @@ local idleCrosshair_Feat = menu.add_feature("Idle Crosshair", "toggle", idleCros
         if drawCrosshair then
             --print(idleCrosshairSize_Feat.value)
             scriptdraw.draw_sprite(
-                idleCrosshairSpriteID, -- id
-                idleCrosshairPos,      -- pos
-                idleCrosshairSize_Feat.value,   -- scale
-                0,                     -- rot
-                idleCrosshairColor   -- color
+                idleCrosshairSpriteID,        -- id
+                idleCrosshairPos,             -- pos
+                idleCrosshairSize_Feat.value, -- scale
+                0,                            -- rot
+                idleCrosshairColor            -- color
             )
         end
     end
@@ -780,43 +817,6 @@ myGlobals.online_thermal__bypass = function(playerID)
     return Global_1 + (playerID * Global_2) + unknown_3 + 1
 end
 
-local function exec_global(featureName, globalExecType, myGlobalFunction, params)
-    --[[
-    Parameters:
-    featureName (string):
-    globalExecType (string):
-    myGlobalFunction (function):
-    params: Optional.
-        State (bool):
-        notifyOnFailure (bool): Wathever you want or not to force displaying the "Prevented executing outdated Global" message.
-
-    Returns:
-    nil: The game version is not compatible with the given Global.
-    bool The status returned from the given Global.
-    ]]
-
-    params = params or {}
-    if params.forceNotifyOnFailure == nil then
-        params.forceNotifyOnFailure = false
-    end
-
-    if SCRIPT_THIS_ONLINE_VERSION ~= SCRIPT_SUPPORTED_ONLINE_VERSION then
-        if params.forceNotifyOnFailure or globalExecType == "set_global_f" or  globalExecType == "set_global_i" or globalExecType == "set_global_s" then
-            menu.notify('Prevented executing an outdated Global.\nExpect "' .. featureName .. '" feature to be unstable.', SCRIPT_NAME, 12, COLOR.ORANGE)
-        end
-
-        return
-    end
-
-    if globalExecType == "set_global_i" then
-        return script.set_global_i(myGlobalFunction(player.player_id()), params.state)
-    elseif globalExecType == "get_global_i" then
-        return script.get_global_i(myGlobalFunction(player.player_id()))
-    end
-
-    handle_script_exit({ hasScriptCrashed = true })
-end
-
 local forceThermalVision_Feat = menu.add_feature("Force Thermal Vision", "toggle", myRootMenu_Feat.id, function(f)
     local notifyOnFailure__flag = true
 
@@ -900,8 +900,8 @@ local autoBST_Feat = menu.add_feature("Auto Bull Shark Testosterone (BST)", "tog
             end
         end
 
-        system.yield()
         -- TODO: Removes BST when un-toggled, unfortunately idk how to check if BST is currently active or not.
+        system.yield()
     end
 end)
 autoBST_Feat.hint = "Automatically gives you Bull Shark Testosterone whenever you die or its timer expires."
