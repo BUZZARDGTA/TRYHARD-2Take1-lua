@@ -23,6 +23,64 @@ local TRUSTED_FLAGS <const> = {
     { name = "LUA_TRUST_HTTP", menuName = "Trusted Http", bitValue = 1 << 3, isRequiered = false },
     { name = "LUA_TRUST_MEMORY", menuName = "Trusted Memory", bitValue = 1 << 4, isRequiered = false }
 }
+local INPUT <const> = {
+    WEAPON_SPECIAL_TWO = 54,
+}
+local CTask <const> = {
+    --[[
+    https://alloc8or.re/gta5/doc/enums/eTaskTypeIndex.txt
+    WARNING: values can change after a game update
+    if R* adds in the middle!
+    This is up-to-date for b3258
+    ]]
+    AimGunOnFoot = 4,
+    PlayerOnFoot = 6,
+    Weapon = 8,
+    PlayerWeapon = 9,
+    DoNothing = 15, -- scripted player movements. ex: walking over to a laptop/car door
+    DyingDead = 97,
+    SynchronizedScene = 135, -- player using laptop/in transitions
+	EnterVehicle = 160,
+    MountThrowProjectile = 190,
+    GoToCarDoorAndStandStill = 195,
+    Gun = 290,
+}
+local PRF <const> = {
+    --[[
+    (PRF = PED RESET FLAG)
+    gta v source code full\gta v source\src\dev_ng\game\script_headers\commands_ped.sch
+    WARNING: values can change after a game update
+    if R* adds in the middle!
+    This is up-to-date for b3258
+    ]]
+    DisablePlayerCombatRoll = 254,
+}
+local Global <const> = {
+    -- These Globals are from 1.69 online version (build 3258)
+    online_thermal__bypass = function(playerID)
+        --[[
+        This function bypass so that you have thermal vision online all the time. (BEHAVIOUR WITHOUT BYPASS: Only apply thermal while scoping with MKII Heavy Sniper)
+
+        Parameters:
+        playerID (int): Your Player ID.
+
+        Returns:
+        uint32_t (int) The number returned from this Global.
+
+        Credits:
+        Thanks Gee-Skid for Thermal Vision source code (natives & 1.68 Globals).
+
+        How to update after new build update:
+        Global_1  --> (Global_1845281[iVar0 /*883*/].f_)
+        unknown_1  --> (Global_1845281[iVar0 /*883*/].f_)
+        unknown_2 --> for i, in (800, 900) do ... |  Was 844 in 1.68, I do not know how to find this unknown type value other then using a for loop.
+        ]]
+        local Global_1 = 1845281 -- gsbd_fm
+        local unknown_1 = 883
+        local unknown_2 = 860
+        return Global_1 + (playerID * unknown_1) + unknown_2  + 1
+    end
+}
 ---- Global constants 1/2 END
 
 ---- Global functions 1/2 START
@@ -123,7 +181,7 @@ local function get_collection_custom_value(collection, inputKey, inputValue, out
     end
 end
 
-local function ADD_MP_INDEX(statName, lastMpChar)
+local function add_mp_index(statName, lastMpChar)
     local exceptions = {
         ["MP_CHAR_STAT_RALLY_ANIM"] = true,
         ["MP_CHAR_ARMOUR_1_COUNT"] = true,
@@ -145,10 +203,28 @@ local function ADD_MP_INDEX(statName, lastMpChar)
     return statName
 end
 
+local function is_ped_in_combatroll(playerPed)
+    return (
+        NATIVES.PED.GET_PED_RESET_FLAG(playerPed, PRF.DisablePlayerCombatRoll)
+        and not ped.is_ped_shooting(playerPed)
+    )
+end
+
+local function is_thermal_vision_enabled()
+    return NATIVES.GRAPHICS.GET_USINGSEETHROUGH()
+end
+
+local function is_any_cutscene_playing(playerID)
+    return (
+        cutscene.is_cutscene_playing()
+        or cutscene.is_cutscene_active()
+        or NATIVES.NETWORK.NETWORK_IS_PLAYER_IN_MP_CUTSCENE(playerID)
+        or NATIVES.NETWORK.IS_PLAYER_IN_CUTSCENE(playerID)
+    )
+end
+
 local function is_phone_open()
-	return (
-        NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("cellphone_flashhand")) > 0
-    ) and true or false
+    return NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("cellphone_flashhand")) > 0
 end
 
 local function is_transition_active()
@@ -162,7 +238,32 @@ local function is_transition_active()
             NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("main")) == 0
             and NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("freemode")) == 0
         )
-    ) and true or false
+    )
+end
+
+local function is_session_started()
+    return (
+        network.is_session_started()
+        and player.get_host() ~= -1
+        and not NATIVES.STREAMING.IS_PLAYER_SWITCH_IN_PROGRESS()
+        and not is_transition_active()
+        and (
+            NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("pi_menu")) == 0
+            and NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("am_pi_menu")) == 1
+        ) and (
+            NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("main")) == 0
+            and NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("freemode")) == 1
+        )
+    )
+end
+
+local function is_player_playing(playerID)
+    return (
+        player.is_player_playing(playerID)
+        and NATIVES.PLAYER.IS_PLAYER_PLAYING(playerID)
+        and NATIVES.NETWORK.NETWORK_IS_PLAYER_CONNECTED(playerID)
+        and NATIVES.NETWORK.NETWORK_IS_PLAYER_ACTIVE(playerID)
+    )
 end
 
 local function is_any_game_overlay_open()
@@ -315,6 +416,53 @@ local function exec_global(featureName, globalExecType, myGlobalFunction, params
     end
 
     handle_script_exit({ hasScriptCrashed = true })
+end
+
+local function enable_thermal_vision()
+    local function bypass_online()
+        local getGlobalResult = exec_global("Thermal Vision", "get_global_i", Global.online_thermal__bypass, { forceNotifyOnFailure = true })
+        if getGlobalResult == 0 then
+            exec_global("Thermal Vision", "set_global_i", Global.online_thermal__bypass, { state = 1 })
+        end
+        return getGlobalResult
+    end
+
+    local getGlobalResult
+
+    if is_session_started() then
+        getGlobalResult = bypass_online()
+    end
+
+    if not is_thermal_vision_enabled() then
+        NATIVES.GRAPHICS.SET_SEETHROUGH(true)
+    end
+    --GRAPHICS._SEETHROUGH_SET_MAX_THICKNESS(50.0)
+
+    return getGlobalResult
+end
+
+local function disable_thermal_vision()
+    local function bypass_online()
+        local getGlobalResult = exec_global("Thermal Vision", "get_global_i", Global.online_thermal__bypass, { forceNotifyOnFailure = true })
+        if getGlobalResult == 1 then
+            exec_global("Thermal Vision", "set_global_i", Global.online_thermal__bypass, { state = 0 })
+        end
+        return getGlobalResult
+    end
+
+    local getGlobalResult
+
+    if is_session_started() then
+        getGlobalResult = bypass_online()
+    end
+
+    if is_thermal_vision_enabled() then
+        NATIVES.GRAPHICS.SET_SEETHROUGH(false)
+    end
+    --GRAPHICS._SEETHROUGH_SET_MAX_THICKNESS(1.0)
+    --NATIVES.GRAPHICS.SEETHROUGH_RESET()
+
+    return getGlobalResult
 end
 
 local function save_settings(params)
@@ -588,84 +736,56 @@ local idleCrosshair_Feat = menu.add_feature("Idle Crosshair", "toggle", idleCros
         system.yield()
 
         local drawCrosshair = true
-        local playerID
-        local playerPed
+        local playerID = player.player_id()
+        local playerPed = player.player_ped()
 
-        if (
-            NATIVES.HUD.IS_PAUSE_MENU_ACTIVE()
+        if
+            is_any_game_overlay_open()
+            or is_transition_active()
             or NATIVES.HUD.IS_WARNING_MESSAGE_ACTIVE()
             or NATIVES.HUD.IS_WARNING_MESSAGE_READY_FOR_CONTROL()
             or NATIVES.HUD.IS_NAVIGATING_MENU_CONTENT()
-            or is_transition_active()
-            or is_any_game_overlay_open()
             or (hideIdleCrosshairInChatMenu_Feat.on and NATIVES.HUD.IS_MP_TEXT_CHAT_TYPING())
             or (hideIdleCrosshairInPhoneMenu_Feat.on and is_phone_open())
             or (hideIdleCrosshairInTwoTakeOneMenu_Feat.on and menu.is_open())
-        ) or not (
-            ui.is_hud_component_active(14)
-            and NATIVES.HUD.IS_MINIMAP_RENDERING()
-        ) then
+            or is_any_cutscene_playing(playerID)
+            or NATIVES.NETWORK.NETWORK_IS_PLAYER_FADING(playerID)
+            or NATIVES.PLAYER.IS_PLAYER_DEAD(playerID)
+            or entity.is_entity_dead(playerPed)
+            or not ui.is_hud_component_active(14)
+            or not NATIVES.HUD.IS_MINIMAP_RENDERING()
+            or not is_player_playing(playerID)
+        then
             drawCrosshair = false
         end
 
         if drawCrosshair then
-            playerID = player.player_id()
-
-            if (
-                cutscene.is_cutscene_playing()
-                or cutscene.is_cutscene_active()
-                or NATIVES.NETWORK.NETWORK_IS_PLAYER_IN_MP_CUTSCENE(playerID)
-                or NATIVES.NETWORK.IS_PLAYER_IN_CUTSCENE(playerID)
-                or NATIVES.NETWORK.NETWORK_IS_PLAYER_FADING(playerID)
-                or NATIVES.PLAYER.IS_PLAYER_DEAD(playerID)
-            ) or not (
-                NATIVES.NETWORK.NETWORK_IS_PLAYER_CONNECTED(playerID)
-                and NATIVES.NETWORK.NETWORK_IS_PLAYER_ACTIVE(playerID)
-                and NATIVES.PLAYER.IS_PLAYER_PLAYING(playerID)
-            ) then
-                drawCrosshair = false
-            end
-        end
-
-        if drawCrosshair then
-            playerPed = player.player_ped()
-
-            if NATIVES.PED.IS_PED_IN_ANY_VEHICLE(playerPed, false) then
+            if ped.is_ped_in_any_vehicle(playerPed) then
                 if
                     hideIdleCrosshairInVehicles_Feat.on
                     or (
-                        NATIVES.PLAYER.IS_PLAYER_FREE_AIMING(playerID)
-                        or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, 190) -- CTaskMountThrowProjectile
+                        player.is_player_free_aiming(playerID)
+                        or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, CTask.MountThrowProjectile)
                     )
                 then
                     drawCrosshair = false
                 end
             else
                 if
-                    NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, 15)     -- CTaskDoNothing (scripted player moves (ex: when reaching a laptop))
-                    or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, 135) -- CTaskSynchronizedScene (ex:player using laptop / transitions)
-                    or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, 997) -- CTaskDyingDead
-                    or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, 289) -- CTaskAimAndThrowProjectile -- Downside is that it adds the [BUG] bellow...
+                    player.is_player_free_aiming(playerID)
+                    or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, CTask.DoNothing) and not (
+                        NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, CTask.EnterVehicle)
+                        and NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, CTask.GoToCarDoorAndStandStill)
+                    )
+                    or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, CTask.SynchronizedScene)
+                    or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, CTask.DyingDead)
                 then
-                    drawCrosshair = false
-                end
-
-                if (
-                    NATIVES.PLAYER.IS_PLAYER_FREE_AIMING(playerID)
-                    and NATIVES.WEAPON.IS_PED_WEAPON_READY_TO_SHOOT(playerPed)
-                    and NATIVES.WEAPON.GET_SELECTED_PED_WEAPON(playerPed) ~= gameplay.get_hash_key("weapon_hominglauncher") -- Alternative: WEAPON.GET_CURRENT_PED_WEAPON
-                ) and not (
-                    NATIVES.PED.IS_PED_SWITCHING_WEAPON(playerPed)
-                ) then
-                    -- [BUG]: When the player aims in 1rd person view with a "ThrowProjectile", the crosshair is not rendering while not aiming.
-                    -- [BUG]: When the player aims in 3rd person view, for a short moment it doesn't have any crosshair. (this is due to camera adjusting)
                     drawCrosshair = false
                 end
             end
         end
 
         if drawCrosshair then
-            --print(idleCrosshairSize_Feat.value)
             scriptdraw.draw_sprite(
                 idleCrosshairSpriteID,        -- id
                 idleCrosshairPos,             -- pos
@@ -697,9 +817,88 @@ idleCrosshairSize_Feat.hint = "Changes the rendered idle crosshair size."
 idleCrosshairSize_Feat.min = 0.20
 idleCrosshairSize_Feat.max = 1.50
 idleCrosshairSize_Feat.mod = 0.10
+
 local hotkeySuicideMenu_Feat = menu.add_feature("Hotkey Suicide", "parent", myRootMenu_Feat.id)
 
 local hotkeyWeaponThermalVisionMenu_Feat = menu.add_feature("Hotkey Weapon Thermal Vision", "parent", myRootMenu_Feat.id)
+
+local disableThermalVisionOffAim_Feat
+local rememberThermalVisionLastState_Feat
+local reloadWithThermalVision_Feat
+local combatRollWithThermalVision_Feat
+
+hotkeyWeaponThermalVision_Feat = menu.add_feature("Hotkey Weapon Thermal Vision", "toggle", hotkeyWeaponThermalVisionMenu_Feat.id, function(f)
+    local thermalVisionState, aimingThermalVisionStateMemory = false, false
+
+    while f.on do
+        system.yield()
+
+        local playerID = player.player_id()
+        local playerPed = player.player_ped()
+
+        local enableThermalThisFrame = false
+        if rememberThermalVisionLastState_Feat.on then
+            enableThermalThisFrame = thermalVisionState
+        else
+            enableThermalThisFrame = aimingThermalVisionStateMemory
+        end
+
+        if player.is_player_free_aiming(playerID) then
+            if controls.is_control_just_pressed(0, INPUT.WEAPON_SPECIAL_TWO) then
+                if is_thermal_vision_enabled() then
+                    thermalVisionState, enableThermalThisFrame, aimingThermalVisionStateMemory = false, false, false
+                else
+                    thermalVisionState, enableThermalThisFrame, aimingThermalVisionStateMemory = true, true, true
+                end
+            end
+        else
+            if not disableThermalVisionOffAim_Feat.on and not rememberThermalVisionLastState_Feat.on then
+                rememberThermalVisionLastState_Feat.on = true
+            end
+            aimingThermalVisionStateMemory = false
+
+            if enableThermalThisFrame and disableThermalVisionOffAim_Feat.on then
+                enableThermalThisFrame = false
+            end
+        end
+
+        if enableThermalThisFrame then
+            if (
+                (not reloadWithThermalVision_Feat.on and NATIVES.PED.IS_PED_RELOADING(playerPed))
+                or
+                (not combatRollWithThermalVision_Feat.on and is_ped_in_combatroll(playerPed))
+            ) then
+                enableThermalThisFrame = false
+            end
+        end
+
+        if enableThermalThisFrame then
+            enable_thermal_vision()
+        else
+            disable_thermal_vision()
+        end
+    end
+
+    if not f.on then
+        disable_thermal_vision()
+    end
+end)
+
+hotkeyWeaponThermalVision_Feat.hint = 'Makes it so when you aim with any gun, you can toggle thermal vision on "E" key.'
+
+menu.add_feature("<- - - - - - - - - -  Options  - - - - - - - - - ->", "action", hotkeyWeaponThermalVisionMenu_Feat.id)
+
+disableThermalVisionOffAim_Feat = menu.add_feature("Disable Thermal Vision Off-Aim", "toggle", hotkeyWeaponThermalVisionMenu_Feat.id)
+disableThermalVisionOffAim_Feat.hint = "Disable thermal vision when not aiming."
+
+rememberThermalVisionLastState_Feat = menu.add_feature("Remember Thermal Vision Last State", "toggle", hotkeyWeaponThermalVisionMenu_Feat.id)
+rememberThermalVisionLastState_Feat.hint = "Remember the last state of thermal vision when toggling."
+
+reloadWithThermalVision_Feat = menu.add_feature("Reload with Thermal Vision", "toggle", hotkeyWeaponThermalVisionMenu_Feat.id)
+reloadWithThermalVision_Feat.hint = "Enable thermal vision when reloading weapons."
+
+combatRollWithThermalVision_Feat = menu.add_feature("Combat Roll with Thermal Vision", "toggle", hotkeyWeaponThermalVisionMenu_Feat.id)
+combatRollWithThermalVision_Feat.hint = "Enable thermal vision during combat rolls."
 
 local autoRefillSnacksAndArmorsMenu_Feat = menu.add_feature("Auto Refill Snacks & Armors", "parent", myRootMenu_Feat.id)
 
@@ -707,22 +906,19 @@ local autoRefillSnacksAndArmors_Feat = menu.add_feature("Auto Refill Snacks & Ar
     while f.on do
         system.yield()
 
-        if
-            network.is_session_started()
-            and player.get_host() ~= -1
-        then
+        if is_session_started() then
             local lastMpChar = stats.stat_get_int(gameplay.get_hash_key("MPPLY_LAST_MP_CHAR"), -1)
 
-            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NO_BOUGHT_YUM_SNACKS", lastMpChar)), 30, true)
-            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NO_BOUGHT_HEALTH_SNACKS", lastMpChar)), 15, true)
-            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NO_BOUGHT_EPIC_SNACKS", lastMpChar)), 5, true)
-            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NUMBER_OF_ORANGE_BOUGHT", lastMpChar)), 10, true)
-            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NUMBER_OF_BOURGE_BOUGHT", lastMpChar)), 10, true)
-            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NUMBER_OF_CHAMP_BOUGHT", lastMpChar)), 5, true)
-            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("CIGARETTES_BOUGHT", lastMpChar)), 20, true)
-            stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("NUMBER_OF_SPRUNK_BOUGHT", lastMpChar)), 10, true)
+            stats.stat_set_int(gameplay.get_hash_key(add_mp_index("NO_BOUGHT_YUM_SNACKS", lastMpChar)), 30, true)
+            stats.stat_set_int(gameplay.get_hash_key(add_mp_index("NO_BOUGHT_HEALTH_SNACKS", lastMpChar)), 15, true)
+            stats.stat_set_int(gameplay.get_hash_key(add_mp_index("NO_BOUGHT_EPIC_SNACKS", lastMpChar)), 5, true)
+            stats.stat_set_int(gameplay.get_hash_key(add_mp_index("NUMBER_OF_ORANGE_BOUGHT", lastMpChar)), 10, true)
+            stats.stat_set_int(gameplay.get_hash_key(add_mp_index("NUMBER_OF_BOURGE_BOUGHT", lastMpChar)), 10, true)
+            stats.stat_set_int(gameplay.get_hash_key(add_mp_index("NUMBER_OF_CHAMP_BOUGHT", lastMpChar)), 5, true)
+            stats.stat_set_int(gameplay.get_hash_key(add_mp_index("CIGARETTES_BOUGHT", lastMpChar)), 20, true)
+            stats.stat_set_int(gameplay.get_hash_key(add_mp_index("NUMBER_OF_SPRUNK_BOUGHT", lastMpChar)), 10, true)
             for i = 1, 5 do
-                stats.stat_set_int(gameplay.get_hash_key(ADD_MP_INDEX("MP_CHAR_ARMOUR_" .. i .. "_COUNT", lastMpChar)), 10, true)
+                stats.stat_set_int(gameplay.get_hash_key(add_mp_index("MP_CHAR_ARMOUR_" .. i .. "_COUNT", lastMpChar)), 10, true)
             end
 
             system.wait(10000) -- No need to spam it.
@@ -787,70 +983,15 @@ local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat = menu.add_feature(
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.hint = 'Number of "Super Heavy Armor" to refill.'
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.max = 10
 
-
-local myGlobals = {}
-
-myGlobals.online_thermal__bypass = function(playerID)
-    --[[
-    This function bypass so that you have thermal vision online all the time. (BEHAVIOUR WITHOUT BYPASS: Only apply thermal while scoping with MKII Heavy Sniper)
-
-    Parameters:
-    playerID (int): Your Player ID.
-
-    Returns:
-    uint32_t (int) The number returned from this Global.
-
-    Credits:
-    Thanks Gee-Skid for Thermal Vision source code (natives & 1.68 Globals).
-
-    More Infos:
-    These Globals are from 1.69 online version (build 3258)
-
-    How to update after new build update:
-    Global_1  --> (Global_1845281[iVar0 /*883*/].f_)
-    Global_2  --> (Global_1845281[iVar0 /*883*/].f_)
-    unknown_3 --> for i, in (800, 900) do ... |  Was 844 in 1.68, I do not know how to find this unknown type value other then using a for loop.
-    ]]
-    local Global_1 = 1845281
-    local Global_2 = 883
-    local unknown_3 = 860
-    return Global_1 + (playerID * Global_2) + unknown_3 + 1
-end
-
 local forceThermalVision_Feat = menu.add_feature("Force Thermal Vision", "toggle", myRootMenu_Feat.id, function(f)
-    local notifyOnFailure__flag = true
-
-    while true do
-        if not f.on then
-            if exec_global("Thermal Vision", "get_global_i", myGlobals.online_thermal__bypass, { forceNotifyOnFailure = notifyOnFailure__flag }) == 1 then
-                exec_global("Thermal Vision", "set_global_i", myGlobals.online_thermal__bypass, { state = 0 })
-            end
-
-            if NATIVES.GRAPHICS.GET_USINGSEETHROUGH() then
-                NATIVES.GRAPHICS.SET_SEETHROUGH(false)
-            end
-
-            NATIVES.GRAPHICS.SEETHROUGH_RESET()
-
-            return
-        end
-
-        if not NATIVES.GRAPHICS.GET_USINGSEETHROUGH() then
-            local getGlobalResult = exec_global("Thermal Vision", "get_global_i", myGlobals.online_thermal__bypass, { forceNotifyOnFailure = notifyOnFailure__flag })
-            if getGlobalResult == 0 then
-                exec_global("Thermal Vision", "set_global_i", myGlobals.online_thermal__bypass, { state = 1 })
-            end
-            NATIVES.GRAPHICS.SET_SEETHROUGH(true)
-
-            -- If the bypass Global cannot be used, at least we can spam the native, it'll works with the MKII Heavy Sniper while aiming w it lmfao
-            if getGlobalResult ~= nil then
-                return
-            end
-
-            notifyOnFailure__flag = false
-        end
-
+    while f.on do
         system.yield()
+
+        enable_thermal_vision()
+    end
+
+    if not f.on then
+        disable_thermal_vision()
     end
 end)
 forceThermalVision_Feat.hint = "Enables the thermal vision view."
@@ -858,51 +999,46 @@ forceThermalVision_Feat.hint = "Enables the thermal vision view."
 local noCombatRollCooldown_Feat = menu.add_feature("No Combat Roll Cooldown", "toggle", myRootMenu_Feat.id)
 
 local autoBST_Feat = menu.add_feature("Auto Bull Shark Testosterone (BST)", "toggle", myRootMenu_Feat.id, function(f)
-    local getBst_Feat = menu.get_feature_by_hierarchy_key("online.services.bull_shark_testosterone")
+    local getBST_Feat = menu.get_feature_by_hierarchy_key("online.services.bull_shark_testosterone")
     local playerVisible_startTime
     local playerDied = false
 
     while f.on do
-        local get_bst = false
+        system.yield()
 
-        if NATIVES.PLAYER.IS_PLAYER_DEAD(player.player_id()) or entity.is_entity_dead(player.player_ped()) then
+        local getBST = false
+        local playerID = player.player_id()
+        local playerPed = player.player_ped()
+
+        if NATIVES.PLAYER.IS_PLAYER_DEAD(playerID) or entity.is_entity_dead(playerPed) then
             playerDied = true
-        elseif player.is_player_playing(player.player_id()) then
+        elseif is_player_playing(playerID) then
             if playerDied then
                 if playerVisible_startTime then
                     if (os.clock() - playerVisible_startTime) >= 1 then -- 0.5 is the strict minimal.
                         playerVisible_startTime = nil
                         playerDied = nil
-                        get_bst = true
+                        getBST = true
                     end
                 else
                     playerVisible_startTime = os.clock()
                 end
             else
-                get_bst = true
+                getBST = true
             end
         end
-        if get_bst then
-            if
-                network.is_session_started()
-                and player.get_host() ~= -1
-                and not NATIVES.STREAMING.IS_PLAYER_SWITCH_IN_PROGRESS()
-                and NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("maintransition")) == 0
-                and (
-                    NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("pi_menu")) == 0
-                    and NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("am_pi_menu")) == 1
-                ) and (
-                    NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("main")) == 0
-                    and NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("freemode")) == 1
-                )
-            then
-                getBst_Feat:toggle()
+        if getBST then
+            if is_session_started() then
+                getBST_Feat:toggle()
             end
         end
-
-        -- TODO: Removes BST when un-toggled, unfortunately idk how to check if BST is currently active or not.
-        system.yield()
     end
+
+    --[[
+    if not f.on then
+    -- TODO: Removes BST when un-toggled, unfortunately idk how to check if BST is currently active or not.
+    end
+    ]]
 end)
 autoBST_Feat.hint = "Automatically gives you Bull Shark Testosterone whenever you die or its timer expires."
 
@@ -939,6 +1075,12 @@ ALL_SETTINGS = {
     {key = "hideIdleCrosshairInChatMenu", defaultValue = true, feat = hideIdleCrosshairInChatMenu_Feat},
     {key = "hideIdleCrosshairInPhoneMenu", defaultValue = true, feat = hideIdleCrosshairInPhoneMenu_Feat},
     {key = "hideIdleCrosshairInTwoTakeOneMenu", defaultValue = true, feat = hideIdleCrosshairInTwoTakeOneMenu_Feat},
+
+    {key = "hotkeyWeaponThermalVision", defaultValue = false, feat = hotkeyWeaponThermalVision_Feat},
+    {key = "disableThermalVisionOffAim", defaultValue = true, feat = disableThermalVisionOffAim_Feat},
+    {key = "rememberThermalVisionLastState", defaultValue = false, feat = rememberThermalVisionLastState_Feat},
+    {key = "reloadWithThermalVision", defaultValue = false, feat = reloadWithThermalVision_Feat},
+    {key = "combatrollWithThermalVision", defaultValue = false, feat = combatRollWithThermalVision_Feat},
 
     {key = "autoRefillSnacksAndArmors", defaultValue = false, feat = autoRefillSnacksAndArmors_Feat},
 
