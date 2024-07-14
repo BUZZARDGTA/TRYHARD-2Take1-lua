@@ -852,11 +852,6 @@ hotkeyWeaponThermalVision_Feat = menu.add_feature("Hotkey Weapon Thermal Vision"
                 end
             end
         else
-            if not disableThermalVisionOffAim_Feat.on and not rememberThermalVisionLastState_Feat.on then
-                rememberThermalVisionLastState_Feat.on = true
-            end
-            aimingThermalVisionStateMemory = false
-
             if enableThermalThisFrame and disableThermalVisionOffAim_Feat.on then
                 enableThermalThisFrame = false
             end
@@ -888,10 +883,19 @@ hotkeyWeaponThermalVision_Feat.hint = 'Makes it so when you aim with any gun, yo
 
 menu.add_feature("<- - - - - - - - - -  Options  - - - - - - - - - ->", "action", hotkeyWeaponThermalVisionMenu_Feat.id)
 
-disableThermalVisionOffAim_Feat = menu.add_feature("Disable Thermal Vision Off-Aim", "toggle", hotkeyWeaponThermalVisionMenu_Feat.id)
+disableThermalVisionOffAim_Feat = menu.add_feature("Disable Thermal Vision Off-Aim", "toggle", hotkeyWeaponThermalVisionMenu_Feat.id, function(f)
+    if not f.on then
+        rememberThermalVisionLastState_Feat.on = true
+    end
+end)
 disableThermalVisionOffAim_Feat.hint = "Disable thermal vision when not aiming."
 
-rememberThermalVisionLastState_Feat = menu.add_feature("Remember Thermal Vision Last State", "toggle", hotkeyWeaponThermalVisionMenu_Feat.id)
+rememberThermalVisionLastState_Feat = menu.add_feature("Remember Thermal Vision Last State", "toggle", hotkeyWeaponThermalVisionMenu_Feat.id, function(f)
+    if not f.on and not disableThermalVisionOffAim_Feat.on then
+        f.on = true
+        menu.notify('You cannot disable "Remember Thermal Vision Last State" when "Disable Thermal Vision Off-Aim" is disabled.', SCRIPT_TITLE, 8, COLOR.ORANGE)
+    end
+end)
 rememberThermalVisionLastState_Feat.hint = "Remember the last state of thermal vision when toggling."
 
 reloadWithThermalVision_Feat = menu.add_feature("Reload with Thermal Vision", "toggle", hotkeyWeaponThermalVisionMenu_Feat.id)
