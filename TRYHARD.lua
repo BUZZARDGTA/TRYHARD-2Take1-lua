@@ -884,7 +884,7 @@ hotkeyWeaponThermalVision_Feat.hint = 'Makes it so when you aim with any gun, yo
 menu.add_feature("<- - - - - - - - - -  Options  - - - - - - - - - ->", "action", hotkeyWeaponThermalVisionMenu_Feat.id)
 
 disableThermalVisionOffAim_Feat = menu.add_feature("Disable Thermal Vision Off-Aim", "toggle", hotkeyWeaponThermalVisionMenu_Feat.id, function(f)
-    if not f.on then
+    if not f.on and not rememberThermalVisionLastState_Feat.on then
         rememberThermalVisionLastState_Feat.on = true
     end
 end)
