@@ -983,43 +983,43 @@ autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat.max = 30
 autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat = menu.add_feature("EgoChaser", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("NO_BOUGHT_HEALTH_SNACKS", f.value)
 end)
-autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat.hint = 'Number of "EgoChaser" to refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat.hint = 'Number of "EgoChaser" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat.max = 15
 
 autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat = menu.add_feature('Meteorite', "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("NO_BOUGHT_EPIC_SNACKS", f.value)
 end)
-autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat.hint = 'Number of "Meteorite" to refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat.hint = 'Number of "Meteorite" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat.max = 5
 
 autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat = menu.add_feature("eCola", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("NUMBER_OF_ORANGE_BOUGHT", f.value)
 end)
-autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat.hint = 'Number of "eCola" to refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat.hint = 'Number of "eCola" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat.max = 10
 
 autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat = menu.add_feature("Pisswasser", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("NUMBER_OF_BOURGE_BOUGHT", f.value)
 end)
-autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat.hint = 'Number of "Pisswasser" to refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat.hint = 'Number of "Pisswasser" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat.max = 10
 
 autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat = menu.add_feature("Blêuter'd Champagne", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("NUMBER_OF_CHAMP_BOUGHT", f.value)
 end)
-autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat.hint = 'Number of "Blêuter\'d Champagne" to refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat.hint = 'Number of "Blêuter\'d Champagne" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat.max = 5
 
 autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat = menu.add_feature("Smokes", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("CIGARETTES_BOUGHT", f.value)
 end)
-autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat.hint = 'Number of "Smokes" to refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat.hint = 'Number of "Smokes" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat.max = 20
 
 autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat = menu.add_feature("Sprunk", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("NUMBER_OF_SPRUNK_BOUGHT", f.value)
 end)
-autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat.hint = 'Number of "Sprunk" to refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat.hint = 'Number of "Sprunk" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat.max = 10
 
 menu.add_feature("<- - - - - - - - -  Armors to Refill  - - - - - - - - ->", "action", snacksAndArmorsMenu_Feat.id)
@@ -1027,31 +1027,31 @@ menu.add_feature("<- - - - - - - - -  Armors to Refill  - - - - - - - - ->", "ac
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat = menu.add_feature("Super Light Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("MP_CHAR_ARMOUR_1_COUNT", f.value)
 end)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat.hint = 'Number of "Super Light Armor" to refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat.hint = 'Number of "Super Light Armor" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat.max = 10
 
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat = menu.add_feature("Light Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("MP_CHAR_ARMOUR_2_COUNT", f.value)
 end)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat.hint = 'Number of "Light Armor" to refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat.hint = 'Number of "Light Armor" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat.max = 10
 
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat = menu.add_feature("Standard Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("MP_CHAR_ARMOUR_3_COUNT", f.value)
 end)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat.hint = 'Number of "Standard Armor" to refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat.hint = 'Number of "Standard Armor" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat.max = 10
 
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat = menu.add_feature("Heavy Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("MP_CHAR_ARMOUR_4_COUNT", f.value)
 end)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat.hint = 'Number of "Heavy Armor" to refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat.hint = 'Number of "Heavy Armor" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat.max = 10
 
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat = menu.add_feature("Super Heavy Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("MP_CHAR_ARMOUR_5_COUNT", f.value)
 end)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.hint = 'Number of "Super Heavy Armor" to refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.hint = 'Number of "Super Heavy Armor" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.max = 10
 
 local noCombatRollCooldown_Feat = menu.add_feature("No Combat Roll Cooldown", "toggle", myRootMenu_Feat.id)
