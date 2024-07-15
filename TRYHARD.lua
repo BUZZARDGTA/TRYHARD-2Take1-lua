@@ -745,7 +745,7 @@ local idleCrosshair_Feat = menu.add_feature("Idle Crosshair", "toggle", idleCros
             or is_transition_active()
             or NATIVES.HUD.IS_WARNING_MESSAGE_ACTIVE()
             or NATIVES.HUD.IS_WARNING_MESSAGE_READY_FOR_CONTROL()
-            or NATIVES.HUD.IS_NAVIGATING_MENU_CONTENT()
+            --or NATIVES.HUD.IS_NAVIGATING_MENU_CONTENT() -- I've commented this one because it hides the crosshair when you enter the planning room for a mission/heist and doesn't restore it afterward.
             or (hideIdleCrosshairInChatMenu_Feat.on and NATIVES.HUD.IS_MP_TEXT_CHAT_TYPING())
             or (hideIdleCrosshairInPhoneMenu_Feat.on and is_phone_open())
             or (hideIdleCrosshairInTwoTakeOneMenu_Feat.on and menu.is_open())
