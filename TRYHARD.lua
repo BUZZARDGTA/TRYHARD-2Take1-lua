@@ -56,31 +56,21 @@ local PRF <const> = {
     DisablePlayerCombatRoll = 254,
 }
 local Global <const> = {
-    -- These Globals are from 1.69 online version (build 3258)
-    online_thermal__bypass = function(playerID)
-        --[[
-        This function bypass so that you have thermal vision online all the time. (BEHAVIOUR WITHOUT BYPASS: Only apply thermal while scoping with MKII Heavy Sniper)
-
-        Parameters:
-        playerID (int): Your Player ID.
-
-        Returns:
-        uint32_t (int) The number returned from this Global.
-
-        Credits:
-        Thanks Gee-Skid for Thermal Vision source code (natives & 1.68 Globals).
-
-        How to update after new build update:
-        Global_1  --> (Global_1845281[iVar0 /*883*/].f_)
-        unknown_1  --> (Global_1845281[iVar0 /*883*/].f_)
-        unknown_2 --> for i, in (800, 900) do ... |  Was 844 in 1.68, I do not know how to find this unknown type value other then using a for loop.
-        ]]
-        local Global_1 = 1845281 -- gsbd_fm
-        local unknown_1 = 883
-        local unknown_2 = 860
-        return Global_1 + (playerID * unknown_1) + unknown_2  + 1
-    end
+    --[[
+    These Globals are from 1.69 online version (build 3258)
+                       --> "How to update after new build update"
+    ]]
+    gsbd_fm = 1845281, --> (Global_1845281[iVar0 /*883*/].f_)
+    unknown_1 = 883,   --> (Global_1845281[iVar0 /*883*/].f_)
+    unknown_2 = 860,   --> for i, in (800, 900) do ... |  Was 844 in 1.68, I do not know how to find this unknown type value other then using a for loop.
 }
+--[[
+This Global bypass so that you have thermal vision online all the time. (BEHAVIOUR WITHOUT BYPASS: Only apply thermal while scoping with MKII Heavy Sniper)
+
+Credits:
+Gee-Skid for Thermal Vision source code (natives & 1.68 Globals).
+]]
+Global.online_thermal__bypass = Global.gsbd_fm + (player.player_id() * Global.unknown_1) + Global.unknown_2 + 1
 ---- Global constants 1/2 END
 
 ---- Global functions 1/2 START
@@ -181,28 +171,6 @@ local function get_collection_custom_value(collection, inputKey, inputValue, out
     end
 end
 
-local function add_mp_index(statName, lastMpChar)
-    local exceptions = {
-        ["MP_CHAR_STAT_RALLY_ANIM"] = true,
-        ["MP_CHAR_ARMOUR_1_COUNT"] = true,
-        ["MP_CHAR_ARMOUR_2_COUNT"] = true,
-        ["MP_CHAR_ARMOUR_3_COUNT"] = true,
-        ["MP_CHAR_ARMOUR_4_COUNT"] = true,
-        ["MP_CHAR_ARMOUR_5_COUNT"] = true,
-    }
-
-    if
-        exceptions[statName] or (
-            not startswith(statName, "MP_")
-            and not startswith(statName, "MPPLY_")
-        )
-    then
-        return "MP" .. lastMpChar .. "_" .. statName
-    end
-
-    return statName
-end
-
 local function is_ped_in_combatroll(playerPed)
     return (
         NATIVES.PED.GET_PED_RESET_FLAG(playerPed, PRF.DisablePlayerCombatRoll)
@@ -256,6 +224,7 @@ local function is_session_started()
         )
     )
 end
+
 
 local function is_player_playing(playerID)
     return (
@@ -328,6 +297,38 @@ local function is_any_game_overlay_open()
     return false
 end
 
+local function add_mp_index(statName, lastMpChar)
+    local exceptions = {
+        ["MP_CHAR_STAT_RALLY_ANIM"] = true,
+        ["MP_CHAR_ARMOUR_1_COUNT"] = true,
+        ["MP_CHAR_ARMOUR_2_COUNT"] = true,
+        ["MP_CHAR_ARMOUR_3_COUNT"] = true,
+        ["MP_CHAR_ARMOUR_4_COUNT"] = true,
+        ["MP_CHAR_ARMOUR_5_COUNT"] = true,
+    }
+
+    if
+        exceptions[statName] or (
+            not startswith(statName, "MP_")
+            and not startswith(statName, "MPPLY_")
+        )
+    then
+        return "MP" .. lastMpChar .. "_" .. statName
+    end
+
+    return statName
+end
+
+local function set_snack_or_armor(snackOrArmorName, quantity)
+    if not is_session_started() then
+        return false
+    end
+
+    local lastMpChar = stats.stat_get_int(gameplay.get_hash_key("MPPLY_LAST_MP_CHAR"), -1)
+
+    return stats.stat_set_int(gameplay.get_hash_key(add_mp_index(snackOrArmorName, lastMpChar)), quantity, true)
+end
+
 local function is_thread_runnning(threadId)
     if threadId and not menu.has_thread_finished(threadId) then
         return true
@@ -381,12 +382,12 @@ local function handle_script_exit(params)
     menu.exit()
 end
 
-local function exec_global(featureName, globalExecType, myGlobalFunction, params)
+local function exec_global(featureName, globalExecType, global, params)
     --[[
     Parameters:
     featureName (string):
     globalExecType (string):
-    myGlobalFunction (function):
+    global (int):
     params: Optional.
         State (bool):
         notifyOnFailure (bool): Wathever you want or not to force displaying the "Prevented executing outdated Global" message.
@@ -410,9 +411,9 @@ local function exec_global(featureName, globalExecType, myGlobalFunction, params
     end
 
     if globalExecType == "set_global_i" then
-        return script.set_global_i(myGlobalFunction(player.player_id()), params.state)
+        return script.set_global_i(global, params.state)
     elseif globalExecType == "get_global_i" then
-        return script.get_global_i(myGlobalFunction(player.player_id()))
+        return script.get_global_i(global)
     end
 
     handle_script_exit({ hasScriptCrashed = true })
@@ -820,15 +821,44 @@ idleCrosshairSize_Feat.mod = 0.10
 
 local hotkeySuicideMenu_Feat = menu.add_feature("Hotkey Suicide", "parent", myRootMenu_Feat.id)
 
-local hotkeyWeaponThermalVisionMenu_Feat = menu.add_feature("Hotkey Weapon Thermal Vision", "parent", myRootMenu_Feat.id)
+local thermalVisionMenu_Feat = menu.add_feature("Thermal Vision", "parent", myRootMenu_Feat.id)
+
+local weaponHotkeyThermalVision_Feat
+
+local forceThermalVision_Feat = menu.add_feature("Force Thermal Vision", "toggle", thermalVisionMenu_Feat.id, function(f)
+    if not f.on then
+        return
+    end
+
+    if weaponHotkeyThermalVision_Feat.on then
+        weaponHotkeyThermalVision_Feat.on = false
+    end
+
+    while f.on do
+        system.yield()
+
+        enable_thermal_vision()
+    end
+
+    disable_thermal_vision()
+end)
+forceThermalVision_Feat.hint = "Enables the thermal vision view."
 
 local disableThermalVisionOffAim_Feat
 local rememberThermalVisionLastState_Feat
 local reloadWithThermalVision_Feat
 local combatRollWithThermalVision_Feat
 
-hotkeyWeaponThermalVision_Feat = menu.add_feature("Hotkey Weapon Thermal Vision", "toggle", hotkeyWeaponThermalVisionMenu_Feat.id, function(f)
-    local thermalVisionState, aimingThermalVisionStateMemory = false, false
+weaponHotkeyThermalVision_Feat = menu.add_feature("Weapon Hotkey Thermal Vision", "toggle", thermalVisionMenu_Feat.id, function(f)
+    if not f.on then
+        return
+    end
+
+    if forceThermalVision_Feat.on then
+        forceThermalVision_Feat.on = false
+    end
+
+    local thermalVisionState = false
 
     while f.on do
         system.yield()
@@ -836,23 +866,23 @@ hotkeyWeaponThermalVision_Feat = menu.add_feature("Hotkey Weapon Thermal Vision"
         local playerID = player.player_id()
         local playerPed = player.player_ped()
 
-        local enableThermalThisFrame = false
-        if rememberThermalVisionLastState_Feat.on then
-            enableThermalThisFrame = thermalVisionState
-        else
-            enableThermalThisFrame = aimingThermalVisionStateMemory
-        end
+        local enableThermalThisFrame = (rememberThermalVisionLastState_Feat.on and thermalVisionState) or false
 
         if player.is_player_free_aiming(playerID) then
             if controls.is_control_just_pressed(0, INPUT.WEAPON_SPECIAL_TWO) then
                 if is_thermal_vision_enabled() then
-                    thermalVisionState, enableThermalThisFrame, aimingThermalVisionStateMemory = false, false, false
+                    enableThermalThisFrame, thermalVisionState = false, false
                 else
-                    thermalVisionState, enableThermalThisFrame, aimingThermalVisionStateMemory = true, true, true
+                    enableThermalThisFrame, thermalVisionState = true, true
                 end
+            else
+                enableThermalThisFrame = thermalVisionState
             end
         else
-            if enableThermalThisFrame and disableThermalVisionOffAim_Feat.on then
+            if not rememberThermalVisionLastState_Feat.on then
+                enableThermalThisFrame, thermalVisionState = false, false
+            end
+            if disableThermalVisionOffAim_Feat.on then
                 enableThermalThisFrame = false
             end
         end
@@ -874,23 +904,20 @@ hotkeyWeaponThermalVision_Feat = menu.add_feature("Hotkey Weapon Thermal Vision"
         end
     end
 
-    if not f.on then
-        disable_thermal_vision()
-    end
+    disable_thermal_vision()
 end)
+weaponHotkeyThermalVision_Feat.hint = 'Makes it so when you aim with any gun, you can toggle thermal vision on "E" key.'
 
-hotkeyWeaponThermalVision_Feat.hint = 'Makes it so when you aim with any gun, you can toggle thermal vision on "E" key.'
+menu.add_feature("<- - - - - -  Weapon Hotkey Options  - - - - - ->", "action", thermalVisionMenu_Feat.id)
 
-menu.add_feature("<- - - - - - - - - -  Options  - - - - - - - - - ->", "action", hotkeyWeaponThermalVisionMenu_Feat.id)
-
-disableThermalVisionOffAim_Feat = menu.add_feature("Disable Thermal Vision Off-Aim", "toggle", hotkeyWeaponThermalVisionMenu_Feat.id, function(f)
+disableThermalVisionOffAim_Feat = menu.add_feature("Disable Thermal Vision Off-Aim", "toggle", thermalVisionMenu_Feat.id, function(f)
     if not f.on and not rememberThermalVisionLastState_Feat.on then
         rememberThermalVisionLastState_Feat.on = true
     end
 end)
 disableThermalVisionOffAim_Feat.hint = "Disable thermal vision when not aiming."
 
-rememberThermalVisionLastState_Feat = menu.add_feature("Remember Thermal Vision Last State", "toggle", hotkeyWeaponThermalVisionMenu_Feat.id, function(f)
+rememberThermalVisionLastState_Feat = menu.add_feature("Remember Thermal Vision Last State", "toggle", thermalVisionMenu_Feat.id, function(f)
     if not f.on and not disableThermalVisionOffAim_Feat.on then
         f.on = true
         menu.notify('You cannot disable "Remember Thermal Vision Last State" when "Disable Thermal Vision Off-Aim" is disabled.', SCRIPT_TITLE, 8, COLOR.ORANGE)
@@ -898,32 +925,46 @@ rememberThermalVisionLastState_Feat = menu.add_feature("Remember Thermal Vision 
 end)
 rememberThermalVisionLastState_Feat.hint = "Remember the last state of thermal vision when toggling."
 
-reloadWithThermalVision_Feat = menu.add_feature("Reload with Thermal Vision", "toggle", hotkeyWeaponThermalVisionMenu_Feat.id)
+reloadWithThermalVision_Feat = menu.add_feature("Reload with Thermal Vision", "toggle", thermalVisionMenu_Feat.id)
 reloadWithThermalVision_Feat.hint = "Enable thermal vision when reloading weapons."
 
-combatRollWithThermalVision_Feat = menu.add_feature("Combat Roll with Thermal Vision", "toggle", hotkeyWeaponThermalVisionMenu_Feat.id)
+combatRollWithThermalVision_Feat = menu.add_feature("Combat Roll with Thermal Vision", "toggle", thermalVisionMenu_Feat.id)
 combatRollWithThermalVision_Feat.hint = "Enable thermal vision during combat rolls."
 
-local autoRefillSnacksAndArmorsMenu_Feat = menu.add_feature("Auto Refill Snacks & Armors", "parent", myRootMenu_Feat.id)
+local snacksAndArmorsMenu_Feat = menu.add_feature("Snacks & Armors", "parent", myRootMenu_Feat.id)
 
-local autoRefillSnacksAndArmors_Feat = menu.add_feature("Auto Refill Snacks & Armors", "toggle", autoRefillSnacksAndArmorsMenu_Feat.id, function(f)
+local autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat
+local autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat
+local autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat
+local autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat
+local autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat
+local autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat
+local autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat
+local autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat
+local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat
+local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat
+local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat
+local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat
+local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat
+
+local autoRefillSnacksAndArmors_Feat = menu.add_feature("Auto Refill Snacks & Armors", "toggle", snacksAndArmorsMenu_Feat.id, function(f)
     while f.on do
         system.yield()
 
         if is_session_started() then
-            local lastMpChar = stats.stat_get_int(gameplay.get_hash_key("MPPLY_LAST_MP_CHAR"), -1)
-
-            stats.stat_set_int(gameplay.get_hash_key(add_mp_index("NO_BOUGHT_YUM_SNACKS", lastMpChar)), 30, true)
-            stats.stat_set_int(gameplay.get_hash_key(add_mp_index("NO_BOUGHT_HEALTH_SNACKS", lastMpChar)), 15, true)
-            stats.stat_set_int(gameplay.get_hash_key(add_mp_index("NO_BOUGHT_EPIC_SNACKS", lastMpChar)), 5, true)
-            stats.stat_set_int(gameplay.get_hash_key(add_mp_index("NUMBER_OF_ORANGE_BOUGHT", lastMpChar)), 10, true)
-            stats.stat_set_int(gameplay.get_hash_key(add_mp_index("NUMBER_OF_BOURGE_BOUGHT", lastMpChar)), 10, true)
-            stats.stat_set_int(gameplay.get_hash_key(add_mp_index("NUMBER_OF_CHAMP_BOUGHT", lastMpChar)), 5, true)
-            stats.stat_set_int(gameplay.get_hash_key(add_mp_index("CIGARETTES_BOUGHT", lastMpChar)), 20, true)
-            stats.stat_set_int(gameplay.get_hash_key(add_mp_index("NUMBER_OF_SPRUNK_BOUGHT", lastMpChar)), 10, true)
-            for i = 1, 5 do
-                stats.stat_set_int(gameplay.get_hash_key(add_mp_index("MP_CHAR_ARMOUR_" .. i .. "_COUNT", lastMpChar)), 10, true)
-            end
+            set_snack_or_armor("NO_BOUGHT_YUM_SNACKS", autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat.value)
+            set_snack_or_armor("NO_BOUGHT_HEALTH_SNACKS", autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat.value)
+            set_snack_or_armor("NO_BOUGHT_EPIC_SNACKS", autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat.value)
+            set_snack_or_armor("NUMBER_OF_ORANGE_BOUGHT", autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat.value)
+            set_snack_or_armor("NUMBER_OF_BOURGE_BOUGHT", autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat.value)
+            set_snack_or_armor("NUMBER_OF_CHAMP_BOUGHT", autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat.value)
+            set_snack_or_armor("CIGARETTES_BOUGHT", autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat.value)
+            set_snack_or_armor("NUMBER_OF_SPRUNK_BOUGHT", autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat.value)
+            set_snack_or_armor("MP_CHAR_ARMOUR_1_COUNT", autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat.value)
+            set_snack_or_armor("MP_CHAR_ARMOUR_2_COUNT", autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat.value)
+            set_snack_or_armor("MP_CHAR_ARMOUR_3_COUNT", autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat.value)
+            set_snack_or_armor("MP_CHAR_ARMOUR_4_COUNT", autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat.value)
+            set_snack_or_armor("MP_CHAR_ARMOUR_5_COUNT", autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.value)
 
             system.wait(10000) -- No need to spam it.
         end
@@ -931,74 +972,87 @@ local autoRefillSnacksAndArmors_Feat = menu.add_feature("Auto Refill Snacks & Ar
 end)
 autoRefillSnacksAndArmors_Feat.hint = "Automatically refill selected Snacks & Armor every 10 seconds."
 
-menu.add_feature("<- - - - - - - -  Snacks to Refill  - - - - - - - ->", "action", autoRefillSnacksAndArmorsMenu_Feat.id)
+menu.add_feature("<- - - - - - - -  Snacks to Refill  - - - - - - - ->", "action", snacksAndArmorsMenu_Feat.id)
 
-local autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat = menu.add_feature("P'S & Q's", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
-autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat.hint = 'Number of "P\'S & Q\'s" to refill.'
+autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat = menu.add_feature("P'S & Q's", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+    set_snack_or_armor("NO_BOUGHT_YUM_SNACKS", f.value)
+end)
+autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat.hint = 'Number of "P\'s & Q\'s" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat.max = 30
 
-local autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat = menu.add_feature("EgoChaser", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
-autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat.hint = 'Number of "EgoChaser" to refill.'
+autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat = menu.add_feature("EgoChaser", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+    set_snack_or_armor("NO_BOUGHT_HEALTH_SNACKS", f.value)
+end)
+autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat.hint = 'Number of "EgoChaser" to refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat.max = 15
 
-local autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat = menu.add_feature('Meteorite', "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
-autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat.hint = 'Number of "Meteorite" to refill.'
+autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat = menu.add_feature('Meteorite', "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+    set_snack_or_armor("NO_BOUGHT_EPIC_SNACKS", f.value)
+end)
+autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat.hint = 'Number of "Meteorite" to refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat.max = 5
 
-local autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat = menu.add_feature("eCola", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
-autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat.hint = 'Number of "eCola" to refill.'
+autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat = menu.add_feature("eCola", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+    set_snack_or_armor("NUMBER_OF_ORANGE_BOUGHT", f.value)
+end)
+autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat.hint = 'Number of "eCola" to refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat.max = 10
 
-local autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat = menu.add_feature("Pisswasser", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
-autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat.hint = 'Number of "Pisswasser" to refill.'
+autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat = menu.add_feature("Pisswasser", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+    set_snack_or_armor("NUMBER_OF_BOURGE_BOUGHT", f.value)
+end)
+autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat.hint = 'Number of "Pisswasser" to refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat.max = 10
 
-local autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat = menu.add_feature("Blêuter'd Champagne", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
-autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat.hint = 'Number of "Blêuter\'d Champagne" to refill.'
+autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat = menu.add_feature("Blêuter'd Champagne", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+    set_snack_or_armor("NUMBER_OF_CHAMP_BOUGHT", f.value)
+end)
+autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat.hint = 'Number of "Blêuter\'d Champagne" to refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat.max = 5
 
-local autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat = menu.add_feature("Smokes", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
-autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat.hint = 'Number of "Smokes" to refill.'
+autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat = menu.add_feature("Smokes", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+    set_snack_or_armor("CIGARETTES_BOUGHT", f.value)
+end)
+autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat.hint = 'Number of "Smokes" to refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat.max = 20
 
-local autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat = menu.add_feature("Sprunk", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
-autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat.hint = 'Number of "Sprunk" to refill.'
+autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat = menu.add_feature("Sprunk", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+    set_snack_or_armor("NUMBER_OF_SPRUNK_BOUGHT", f.value)
+end)
+autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat.hint = 'Number of "Sprunk" to refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat.max = 10
 
-menu.add_feature("<- - - - - - - - -  Armors to Refill  - - - - - - - - ->", "action", autoRefillSnacksAndArmorsMenu_Feat.id)
+menu.add_feature("<- - - - - - - - -  Armors to Refill  - - - - - - - - ->", "action", snacksAndArmorsMenu_Feat.id)
 
-local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat = menu.add_feature("Super Light Armor", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat.hint = 'Number of "Super Light Armor" to refill.'
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat = menu.add_feature("Super Light Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+    set_snack_or_armor("MP_CHAR_ARMOUR_1_COUNT", f.value)
+end)
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat.hint = 'Number of "Super Light Armor" to refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat.max = 10
 
-local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat = menu.add_feature("Light Armor", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat.hint = 'Number of "Light Armor" to refill.'
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat = menu.add_feature("Light Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+    set_snack_or_armor("MP_CHAR_ARMOUR_2_COUNT", f.value)
+end)
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat.hint = 'Number of "Light Armor" to refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat.max = 10
 
-local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat = menu.add_feature("Standard Armor", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat.hint = 'Number of "Standard Armor" to refill.'
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat = menu.add_feature("Standard Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+    set_snack_or_armor("MP_CHAR_ARMOUR_3_COUNT", f.value)
+end)
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat.hint = 'Number of "Standard Armor" to refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat.max = 10
 
-local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat = menu.add_feature("Heavy Armor", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat.hint = 'Number of "Heavy Armor" to refill.'
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat = menu.add_feature("Heavy Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+    set_snack_or_armor("MP_CHAR_ARMOUR_4_COUNT", f.value)
+end)
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat.hint = 'Number of "Heavy Armor" to refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat.max = 10
 
-local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat = menu.add_feature("Super Heavy Armor", "autoaction_value_i", autoRefillSnacksAndArmorsMenu_Feat.id)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.hint = 'Number of "Super Heavy Armor" to refill.'
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.max = 10
-
-local forceThermalVision_Feat = menu.add_feature("Force Thermal Vision", "toggle", myRootMenu_Feat.id, function(f)
-    while f.on do
-        system.yield()
-
-        enable_thermal_vision()
-    end
-
-    if not f.on then
-        disable_thermal_vision()
-    end
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat = menu.add_feature("Super Heavy Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+    set_snack_or_armor("MP_CHAR_ARMOUR_5_COUNT", f.value)
 end)
-forceThermalVision_Feat.hint = "Enables the thermal vision view."
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.hint = 'Number of "Super Heavy Armor" to refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.max = 10
 
 local noCombatRollCooldown_Feat = menu.add_feature("No Combat Roll Cooldown", "toggle", myRootMenu_Feat.id)
 
@@ -1080,14 +1134,14 @@ ALL_SETTINGS = {
     {key = "hideIdleCrosshairInPhoneMenu", defaultValue = true, feat = hideIdleCrosshairInPhoneMenu_Feat},
     {key = "hideIdleCrosshairInTwoTakeOneMenu", defaultValue = true, feat = hideIdleCrosshairInTwoTakeOneMenu_Feat},
 
-    {key = "hotkeyWeaponThermalVision", defaultValue = false, feat = hotkeyWeaponThermalVision_Feat},
+    {key = "forceThermalVision", defaultValue = false, feat = forceThermalVision_Feat},
+    {key = "hotkeyWeaponThermalVision", defaultValue = false, feat = weaponHotkeyThermalVision_Feat},
     {key = "disableThermalVisionOffAim", defaultValue = true, feat = disableThermalVisionOffAim_Feat},
     {key = "rememberThermalVisionLastState", defaultValue = false, feat = rememberThermalVisionLastState_Feat},
     {key = "reloadWithThermalVision", defaultValue = false, feat = reloadWithThermalVision_Feat},
     {key = "combatrollWithThermalVision", defaultValue = false, feat = combatRollWithThermalVision_Feat},
 
     {key = "autoRefillSnacksAndArmors", defaultValue = false, feat = autoRefillSnacksAndArmors_Feat},
-
     {key = "autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS", defaultValue = 30, feat = autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat},
     {key = "autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS", defaultValue = 15, feat = autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat},
     {key = "autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS", defaultValue = 5, feat = autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat},
@@ -1096,14 +1150,12 @@ ALL_SETTINGS = {
     {key = "autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT", defaultValue = 5, feat = autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat},
     {key = "autoRefillSnacksAndArmors__CIGARETTES_BOUGHT", defaultValue = 20, feat = autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat},
     {key = "autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT", defaultValue = 10, feat = autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat},
-
     {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat},
     {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat},
     {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat},
     {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat},
     {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat},
 
-    {key = "forceThermalVision", defaultValue = false, feat = forceThermalVision_Feat},
     {key = "noCombatRollCooldown", defaultValue = false, feat = noCombatRollCooldown_Feat},
     {key = "autoBST", defaultValue = false, feat = autoBST_Feat},
 }
