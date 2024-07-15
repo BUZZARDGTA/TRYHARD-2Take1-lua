@@ -53,7 +53,15 @@ local PRF <const> = {
     if R* adds in the middle!
     This is up-to-date for b3258
     ]]
-    DisablePlayerCombatRoll = 254,
+    --[[
+    I know one of these flags is named "DisablePlayerCombatRoll" but I'm unsure about the others.
+    All I can say is that when a combat roll occurs, all four flags are triggered.
+    I'm including all of them just to be safe.
+    ]]
+    DisablePlayerCombatRoll_1 = 24,
+    DisablePlayerCombatRoll_2 = 254,
+    DisablePlayerCombatRoll_3 = 352,
+    DisablePlayerCombatRoll_4 = 395,
 }
 local Global <const> = {
     --[[
@@ -173,8 +181,10 @@ end
 
 local function is_ped_in_combatroll(playerPed)
     return (
-        NATIVES.PED.GET_PED_RESET_FLAG(playerPed, PRF.DisablePlayerCombatRoll)
-        and not ped.is_ped_shooting(playerPed)
+        NATIVES.PED.GET_PED_RESET_FLAG(playerPed, PRF.DisablePlayerCombatRoll_1)
+        and NATIVES.PED.GET_PED_RESET_FLAG(playerPed, PRF.DisablePlayerCombatRoll_2)
+        and NATIVES.PED.GET_PED_RESET_FLAG(playerPed, PRF.DisablePlayerCombatRoll_3)
+        and NATIVES.PED.GET_PED_RESET_FLAG(playerPed, PRF.DisablePlayerCombatRoll_4)
     )
 end
 
@@ -745,7 +755,6 @@ local idleCrosshair_Feat = menu.add_feature("Idle Crosshair", "toggle", idleCros
             or is_transition_active()
             or NATIVES.HUD.IS_WARNING_MESSAGE_ACTIVE()
             or NATIVES.HUD.IS_WARNING_MESSAGE_READY_FOR_CONTROL()
-            --or NATIVES.HUD.IS_NAVIGATING_MENU_CONTENT() -- I've commented this one because it hides the crosshair when you enter the planning room for a mission/heist and doesn't restore it afterward.
             or (hideIdleCrosshairInChatMenu_Feat.on and NATIVES.HUD.IS_MP_TEXT_CHAT_TYPING())
             or (hideIdleCrosshairInPhoneMenu_Feat.on and is_phone_open())
             or (hideIdleCrosshairInTwoTakeOneMenu_Feat.on and menu.is_open())
