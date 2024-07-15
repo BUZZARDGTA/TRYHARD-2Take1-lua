@@ -54,6 +54,7 @@ local PRF <const> = {
     This is up-to-date for b3258
     ]]
     --[[
+    R* changed all PRF bitvalues values from source code leak.
     I know one of these flags is named "DisablePlayerCombatRoll" but I'm unsure about the others.
     All I can say is that when a combat roll occurs, all four flags are triggered.
     I'm including all of them just to be safe.
