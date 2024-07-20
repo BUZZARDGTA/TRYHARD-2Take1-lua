@@ -31,42 +31,41 @@ local CTask <const> = {
     https://alloc8or.re/gta5/doc/enums/eTaskTypeIndex.txt
     WARNING: values can change after a game update
     if R* adds in the middle!
-    This is up-to-date for b3258
+    This is up-to-date for b3274
     ]]
-    AimGunOnFoot = 4,
-    PlayerOnFoot = 6,
-    Weapon = 8,
-    PlayerWeapon = 9,
     DoNothing = 15, -- scripted player movements. ex: walking over to a laptop/car door
-    DyingDead = 97,
     SynchronizedScene = 135, -- player using laptop/in transitions
 	EnterVehicle = 160,
-    MountThrowProjectile = 190,
     GoToCarDoorAndStandStill = 195,
-    Gun = 290,
+    AimGunBlindFire = 304,
 }
 local PRF <const> = {
     --[[
     (PRF = PED RESET FLAG)
-    gta v source code full\gta v source\src\dev_ng\game\script_headers\commands_ped.sch
+    gta v source\src\dev_ng\game\Peds\PedFlags.cpp
+    gta v source\src\dev_ng\game\Peds\PedFlagsMeta.psc
+    gta v source\src\dev_ng\game\script_headers\commands_ped.sch
     WARNING: values can change after a game update
     if R* adds in the middle!
-    This is up-to-date for b3258
+    This is up-to-date for b3274
     ]]
+    DoingCombatRoll = 254,
+}
+local PCF <const> = {
     --[[
-    R* changed all PRF bitvalues values from source code leak.
-    I know one of these flags is named "DisablePlayerCombatRoll" but I'm unsure about the others.
-    All I can say is that when a combat roll occurs, all four flags are triggered.
-    I'm including all of them just to be safe.
+    (PCF = PED CONFIG FLAG)
+    gta v source\src\dev_ng\game\Peds\PedFlags.cpp
+    gta v source\src\dev_ng\game\Peds\PedFlagsMeta.psc
+    gta v source\src\dev_ng\game\script_headers\commands_ped.sch
+    WARNING: values can change after a game update
+    if R* adds in the middle!
+    This is up-to-date for b3274
     ]]
-    DisablePlayerCombatRoll_1 = 24,
-    DisablePlayerCombatRoll_2 = 254,
-    DisablePlayerCombatRoll_3 = 352,
-    DisablePlayerCombatRoll_4 = 395,
+    IsAimingGun = 78,
 }
 local Global <const> = {
     --[[
-    These Globals are from 1.69 online version (build 3258)
+    This is up-to-date for b3274
                        --> "How to update after new build update"
     ]]
     gsbd_fm = 1845281, --> (Global_1845281[iVar0 /*883*/].f_)
@@ -98,10 +97,6 @@ local COLOR <const> = {
 ---- Global constants 2/2 END
 
 ---- Global functions 2/2 START
-local function dec_to_ipv4(ip)
-    return string.format("%i.%i.%i.%i", ip >> 24 & 255, ip >> 16 & 255, ip >> 8 & 255, ip & 255)
-end
-
 local function pluralize(word, count)
     if count > 1 then
         return word .. "s"
@@ -182,10 +177,7 @@ end
 
 local function is_ped_in_combatroll(playerPed)
     return (
-        NATIVES.PED.GET_PED_RESET_FLAG(playerPed, PRF.DisablePlayerCombatRoll_1)
-        and NATIVES.PED.GET_PED_RESET_FLAG(playerPed, PRF.DisablePlayerCombatRoll_2)
-        and NATIVES.PED.GET_PED_RESET_FLAG(playerPed, PRF.DisablePlayerCombatRoll_3)
-        and NATIVES.PED.GET_PED_RESET_FLAG(playerPed, PRF.DisablePlayerCombatRoll_4)
+        NATIVES.PED.GET_PED_RESET_FLAG(playerPed, PRF.DoingCombatRoll)
     )
 end
 
@@ -244,6 +236,22 @@ local function is_player_playing(playerID)
         and NATIVES.NETWORK.NETWORK_IS_PLAYER_CONNECTED(playerID)
         and NATIVES.NETWORK.NETWORK_IS_PLAYER_ACTIVE(playerID)
     )
+end
+
+local function is_player_free_aiming_with_crosshair_reticle(playerID, playerPed)
+    -- TODO: Add an "is camera aim moving and aiming" parameter.
+    if NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, CTask.AimGunBlindFire) then
+        return false
+    end
+
+    if
+        player.is_player_free_aiming(playerID)
+        or NATIVES.PED.GET_PED_CONFIG_FLAG(playerPed, PCF.IsAimingGun, true)
+    then
+        return true
+    end
+
+    return false
 end
 
 local function is_any_game_overlay_open()
@@ -774,22 +782,20 @@ local idleCrosshair_Feat = menu.add_feature("Idle Crosshair", "toggle", idleCros
             if ped.is_ped_in_any_vehicle(playerPed) then
                 if
                     hideIdleCrosshairInVehicles_Feat.on
-                    or (
-                        player.is_player_free_aiming(playerID)
-                        or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, CTask.MountThrowProjectile)
-                    )
+                    or is_player_free_aiming_with_crosshair_reticle(playerID, playerPed)
                 then
                     drawCrosshair = false
                 end
             else
                 if
-                    player.is_player_free_aiming(playerID)
+                    is_player_free_aiming_with_crosshair_reticle(playerID, playerPed) and (
+                        NATIVES.WEAPON.GET_SELECTED_PED_WEAPON(playerPed) ~= gameplay.get_hash_key("weapon_hominglauncher")
+                    )
                     or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, CTask.DoNothing) and not (
                         NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, CTask.EnterVehicle)
                         and NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, CTask.GoToCarDoorAndStandStill)
                     )
                     or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, CTask.SynchronizedScene)
-                    or NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, CTask.DyingDead)
                 then
                     drawCrosshair = false
                 end
@@ -878,7 +884,7 @@ weaponHotkeyThermalVision_Feat = menu.add_feature("Weapon Hotkey Thermal Vision"
 
         local enableThermalThisFrame = (rememberThermalVisionLastState_Feat.on and thermalVisionState) or false
 
-        if player.is_player_free_aiming(playerID) then
+        if is_player_free_aiming_with_crosshair_reticle(playerID, playerPed) and not player.is_player_in_any_vehicle(playerID) then
             if controls.is_control_just_pressed(0, INPUT.WEAPON_SPECIAL_TWO) then
                 if is_thermal_vision_enabled() then
                     enableThermalThisFrame, thermalVisionState = false, false
