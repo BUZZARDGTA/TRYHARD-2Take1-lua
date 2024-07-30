@@ -98,11 +98,7 @@ local COLOR <const> = {
 
 ---- Global functions 2/2 START
 local function pluralize(word, count)
-    if count > 1 then
-        return word .. "s"
-    else
-        return word
-    end
+    return word .. (count > 1 and "s" or "")
 end
 
 local function startswith(str, prefix)
@@ -228,7 +224,6 @@ local function is_session_started()
     )
 end
 
-
 local function is_player_playing(playerID)
     return (
         player.is_player_playing(playerID)
@@ -240,16 +235,27 @@ end
 
 local function is_player_free_aiming_with_crosshair_reticle(playerID, playerPed)
     -- TODO: Add an "is camera aim moving and aiming" parameter.
+    --if (!rPed.GetPedResetFlag(CPED_RESET_FLAG_IsAimingFromCover) && !rPed.GetPedResetFlag(CPED_RESET_FLAG_IsPeekingFromCover) && !rPed.GetPedResetFlag(CPED_RESET_FLAG_IsBlindFiring))
     if NATIVES.TASK.GET_IS_TASK_ACTIVE(playerPed, CTask.AimGunBlindFire) then
         return false
     end
 
-    if
-        player.is_player_free_aiming(playerID)
-        or NATIVES.PED.GET_PED_CONFIG_FLAG(playerPed, PCF.IsAimingGun, true)
-    then
+    if NATIVES.PED.GET_PED_CONFIG_FLAG(playerPed, PCF.IsAimingGun, true) then
+        if
+            NATIVES.PED.GET_PED_RESET_FLAG(playerPed, 143)
+        then
+            return false
+        end
         return true
     end
+
+
+    --if
+    --    player.is_player_free_aiming(playerID)
+    --    or NATIVES.PED.GET_PED_CONFIG_FLAG(playerPed, PCF.IsAimingGun, true)
+    --then
+    --    return true
+    --end
 
     return false
 end
@@ -348,7 +354,7 @@ local function set_snack_or_armor(snackOrArmorName, quantity)
     return stats.stat_set_int(gameplay.get_hash_key(add_mp_index(snackOrArmorName, lastMpChar)), quantity, true)
 end
 
-local function is_thread_runnning(threadId)
+local function is_thread_running(threadId)
     if threadId and not menu.has_thread_finished(threadId) then
         return true
     end
@@ -383,7 +389,7 @@ local function handle_script_exit(params)
 
     scriptExitEventListener = remove_event_listener("exit", scriptExitEventListener)
 
-    if is_thread_runnning(sendChatMessageThread) then
+    if is_thread_running(sendChatMessageThread) then
         sendChatMessageThread = delete_thread(sendChatMessageThread)
     end
 
@@ -684,13 +690,14 @@ end
 ---- Global functions 2/2 END
 
 ---- Global event listeners START
-scriptExitEventListener = event.add_event_listener("exit", function(f)
+scriptExitEventListener = event.add_event_listener("exit", function()
     handle_script_exit()
 end)
 ---- Global event listeners END
 -- Globals END
 
 
+-- Permissions Startup Checking START
 local unnecessaryPermissions = {}
 local missingPermissions = {}
 
@@ -707,28 +714,22 @@ for _, flag in ipairs(TRUSTED_FLAGS) do
 end
 
 if #unnecessaryPermissions > 0 then
-    local unnecessaryPermissionsMessage = "You do not require the following " .. pluralize("permission", #unnecessaryPermissions) .. ":\n"
-    for _, permission in ipairs(unnecessaryPermissions) do
-        unnecessaryPermissionsMessage = unnecessaryPermissionsMessage .. permission .. "\n"
-    end
-    menu.notify(unnecessaryPermissionsMessage, SCRIPT_NAME, 6, COLOR.ORANGE)
+    menu.notify("You do not require the following " .. pluralize("permission", #unnecessaryPermissions) .. ":\n" .. table.concat(unnecessaryPermissions, "\n"),
+        SCRIPT_NAME, 6, COLOR.ORANGE)
 end
-
 if #missingPermissions > 0 then
-    local missingPermissionsMessage = "You need to enable the following " .. pluralize("permission", #missingPermissions) .. ":\n"
-    for _, permission in ipairs(missingPermissions) do
-        missingPermissionsMessage = missingPermissionsMessage .. permission .. "\n"
-    end
-    menu.notify(missingPermissionsMessage, SCRIPT_NAME, 6, COLOR.RED)
-
+    menu.notify(
+        "You need to enable the following " .. pluralize("permission", #missingPermissions) .. ":\n" .. table.concat(missingPermissions, "\n"),
+        SCRIPT_NAME, 6, COLOR.RED)
     handle_script_exit()
 end
+-- Permissions Startup Checking END
 
 
 -- === Main Menu Features === --
 local myRootMenu_Feat = menu.add_feature(SCRIPT_TITLE, "parent", 0)
 
-local exitScript_Feat = menu.add_feature("#FF0000DD#Stop Script#DEFAULT#", "action", myRootMenu_Feat.id, function(feat, pid)
+local exitScript_Feat = menu.add_feature("#FF0000DD#Stop Script#DEFAULT#", "action", myRootMenu_Feat.id, function()
     handle_script_exit()
 end)
 exitScript_Feat.hint = 'Stop "' .. SCRIPT_NAME .. '"'
@@ -1070,6 +1071,55 @@ end)
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.hint = 'Number of "Super Heavy Armor" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
 autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.max = 10
 
+local legitAutoRefillAmmosmenu_Feat = menu.add_feature("Legit Auto Refill Ammos", "parent", myRootMenu_Feat.id)
+
+local refillAmmo_Feat = menu.get_feature_by_hierarchy_key("local.weapons.refill_ammo")
+local autoRefillAmmo_Feat = menu.get_feature_by_hierarchy_key("local.weapons.auto_refill_ammo")
+local legitAutoRefillAmmosTimer_Feat
+
+local legitAutoRefillAmmos_Feat = menu.add_feature("Legit Auto Refill Ammos", "toggle", legitAutoRefillAmmosmenu_Feat.id, function(f)
+    -- Store the original state of autoRefillAmmo_Feat
+    local originalAutoRefillState = autoRefillAmmo_Feat.on
+
+    while f.on do
+        -- Disable autoRefillAmmo_Feat if it is on
+        if autoRefillAmmo_Feat.on then
+            autoRefillAmmo_Feat.on = false
+        end
+
+        local reloadState = true
+        local playerId = player.player_id()
+        local playerPed = player.player_ped()
+
+        local start_Time = os.clock()
+
+        -- Wait for 3 seconds and check if player did not reload/aim during this time
+        while os.clock() - start_Time < legitAutoRefillAmmosTimer_Feat.value do
+            if is_player_free_aiming_with_crosshair_reticle(playerId, playerPed) or ped.is_ped_shooting(playerPed) then -- player.is_player_free_aiming(playerId) Not needed at least in my tests.
+                reloadState = false
+                break
+            end
+            system.yield(100) -- Prevent CPU overuse by adding a short delay
+        end
+
+        -- Refill ammo if the player did not reload/aim within the last 3 seconds
+        if reloadState then
+            refillAmmo_Feat:toggle()
+        end
+
+        system.yield(500) -- Adding a delay to prevent rapid refilling
+    end
+
+    -- Restore the original state of autoRefillAmmo_Feat when the toggle is turned off
+    autoRefillAmmo_Feat.on = originalAutoRefillState
+end)
+legitAutoRefillAmmos_Feat.hint = "Automatically refill your ammo every [3-60] seconds when you're not aiming/shooting.\nThis mimics the time it takes for a macro to refill for legitimate players."
+
+legitAutoRefillAmmosTimer_Feat = menu.add_feature("Refill Timer", "autoaction_value_i", legitAutoRefillAmmosmenu_Feat.id)
+legitAutoRefillAmmosTimer_Feat.min = 3
+legitAutoRefillAmmosTimer_Feat.max = 60
+legitAutoRefillAmmosTimer_Feat.hint = "Allows you to choose the period of time to automatically refill your ammo."
+
 local noCombatRollCooldown_Feat = menu.add_feature("No Combat Roll Cooldown", "toggle", myRootMenu_Feat.id)
 
 local autoBST_Feat = menu.add_feature("Auto Bull Shark Testosterone (BST)", "toggle", myRootMenu_Feat.id, function(f)
@@ -1171,6 +1221,9 @@ ALL_SETTINGS = {
     {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat},
     {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat},
     {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat},
+
+    {key = "legitAutoRefillAmmos", defaultValue = false, feat = legitAutoRefillAmmos_Feat},
+    {key = "legitAutoRefillAmmosTimer", defaultValue = 3, feat = legitAutoRefillAmmosTimer_Feat},
 
     {key = "noCombatRollCooldown", defaultValue = false, feat = noCombatRollCooldown_Feat},
     {key = "autoBST", defaultValue = false, feat = autoBST_Feat},
