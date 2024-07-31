@@ -61,6 +61,7 @@ local PCF <const> = {
     if R* adds in the middle!
     This is up-to-date for b3274
     ]]
+    IsFiring = 58,
     IsAimingGun = 78,
 }
 local Global <const> = {
@@ -172,9 +173,7 @@ local function get_collection_custom_value(collection, inputKey, inputValue, out
 end
 
 local function is_ped_in_combatroll(playerPed)
-    return (
-        NATIVES.PED.GET_PED_RESET_FLAG(playerPed, PRF.DoingCombatRoll)
-    )
+    return NATIVES.PED.GET_PED_RESET_FLAG(playerPed, PRF.DoingCombatRoll)
 end
 
 local function is_thermal_vision_enabled()
@@ -258,6 +257,37 @@ local function is_player_free_aiming_with_crosshair_reticle(playerID, playerPed)
     --end
 
     return false
+end
+
+local function is_ped_shooting_from_armed_weapon(playerPed, typeFlags, params)
+    -- https://alloc8or.re/gta5/nativedb/?n=0x475768A975D5AD17
+
+    params = params or {}
+    if params.checkAmmo == nil then
+        params.checkAmmo = false
+    end
+
+    local function has_ped_weapon_valid_ammo_counter(playerPed)
+        local selectedPedWeapon = NATIVES.WEAPON.GET_SELECTED_PED_WEAPON(playerPed)
+        local ammoInPedWeapon = NATIVES.WEAPON.GET_AMMO_IN_PED_WEAPON(playerPed, selectedPedWeapon)
+        local excludedWeapons = {
+            [gameplay.get_hash_key("weapon_hackingdevice")] = true,
+            [gameplay.get_hash_key("weapon_raypistol")] = true,
+            [gameplay.get_hash_key("weapon_stungun_mp")] = true,
+            [gameplay.get_hash_key("weapon_stungun")] = true,
+        }
+
+        return not (
+            ammoInPedWeapon < 0
+            or excludedWeapons[selectedPedWeapon]
+        )
+    end
+
+    return (
+        NATIVES.WEAPON.IS_PED_ARMED(playerPed, typeFlags)
+        and NATIVES.PED.GET_PED_CONFIG_FLAG(playerPed, PCF.IsFiring, true)
+        and (not params.checkAmmo or has_ped_weapon_valid_ammo_counter(playerPed)) -- Optional ammo check
+    )
 end
 
 local function is_any_game_overlay_open()
@@ -958,33 +988,31 @@ local autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat
 local autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat
 local autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat
 local autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat
-local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat
-local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat
-local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat
-local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat
-local autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat
+local autoRefillSnacksAndArmors__ARMOUR_1_COUNT_Feat
+local autoRefillSnacksAndArmors__ARMOUR_2_COUNT_Feat
+local autoRefillSnacksAndArmors__ARMOUR_3_COUNT_Feat
+local autoRefillSnacksAndArmors__ARMOUR_4_COUNT_Feat
+local autoRefillSnacksAndArmors__ARMOUR_5_COUNT_Feat
 
 local autoRefillSnacksAndArmors_Feat = menu.add_feature("Auto Refill Snacks & Armors", "toggle", snacksAndArmorsMenu_Feat.id, function(f)
     while f.on do
-        system.yield()
-
         if is_session_started() then
-            set_snack_or_armor("NO_BOUGHT_YUM_SNACKS", autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat.value)
+            set_snack_or_armor("NO_BOUGHT_YUM_SNACKS",    autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat.value)
             set_snack_or_armor("NO_BOUGHT_HEALTH_SNACKS", autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat.value)
-            set_snack_or_armor("NO_BOUGHT_EPIC_SNACKS", autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat.value)
+            set_snack_or_armor("NO_BOUGHT_EPIC_SNACKS",   autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat.value)
             set_snack_or_armor("NUMBER_OF_ORANGE_BOUGHT", autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat.value)
             set_snack_or_armor("NUMBER_OF_BOURGE_BOUGHT", autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat.value)
-            set_snack_or_armor("NUMBER_OF_CHAMP_BOUGHT", autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat.value)
-            set_snack_or_armor("CIGARETTES_BOUGHT", autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat.value)
+            set_snack_or_armor("NUMBER_OF_CHAMP_BOUGHT",  autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat.value)
+            set_snack_or_armor("CIGARETTES_BOUGHT",       autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat.value)
             set_snack_or_armor("NUMBER_OF_SPRUNK_BOUGHT", autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat.value)
-            set_snack_or_armor("MP_CHAR_ARMOUR_1_COUNT", autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat.value)
-            set_snack_or_armor("MP_CHAR_ARMOUR_2_COUNT", autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat.value)
-            set_snack_or_armor("MP_CHAR_ARMOUR_3_COUNT", autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat.value)
-            set_snack_or_armor("MP_CHAR_ARMOUR_4_COUNT", autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat.value)
-            set_snack_or_armor("MP_CHAR_ARMOUR_5_COUNT", autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.value)
-
-            system.wait(10000) -- No need to spam it.
+            set_snack_or_armor("MP_CHAR_ARMOUR_1_COUNT",  autoRefillSnacksAndArmors__ARMOUR_1_COUNT_Feat.value)
+            set_snack_or_armor("MP_CHAR_ARMOUR_2_COUNT",  autoRefillSnacksAndArmors__ARMOUR_2_COUNT_Feat.value)
+            set_snack_or_armor("MP_CHAR_ARMOUR_3_COUNT",  autoRefillSnacksAndArmors__ARMOUR_3_COUNT_Feat.value)
+            set_snack_or_armor("MP_CHAR_ARMOUR_4_COUNT",  autoRefillSnacksAndArmors__ARMOUR_4_COUNT_Feat.value)
+            set_snack_or_armor("MP_CHAR_ARMOUR_5_COUNT",  autoRefillSnacksAndArmors__ARMOUR_5_COUNT_Feat.value)
         end
+
+        system.yield(10000) -- No need to spam it.
     end
 end)
 autoRefillSnacksAndArmors_Feat.hint = "Automatically refill selected Snacks & Armor every 10 seconds."
@@ -1041,84 +1069,97 @@ autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat.max = 10
 
 menu.add_feature("<- - - - - - - - -  Armors to Refill  - - - - - - - - ->", "action", snacksAndArmorsMenu_Feat.id)
 
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat = menu.add_feature("Super Light Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+autoRefillSnacksAndArmors__ARMOUR_1_COUNT_Feat = menu.add_feature("Super Light Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("MP_CHAR_ARMOUR_1_COUNT", f.value)
 end)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat.hint = 'Number of "Super Light Armor" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat.max = 10
+autoRefillSnacksAndArmors__ARMOUR_1_COUNT_Feat.hint = 'Number of "Super Light Armor" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__ARMOUR_1_COUNT_Feat.max = 10
 
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat = menu.add_feature("Light Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+autoRefillSnacksAndArmors__ARMOUR_2_COUNT_Feat = menu.add_feature("Light Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("MP_CHAR_ARMOUR_2_COUNT", f.value)
 end)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat.hint = 'Number of "Light Armor" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat.max = 10
+autoRefillSnacksAndArmors__ARMOUR_2_COUNT_Feat.hint = 'Number of "Light Armor" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__ARMOUR_2_COUNT_Feat.max = 10
 
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat = menu.add_feature("Standard Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+autoRefillSnacksAndArmors__ARMOUR_3_COUNT_Feat = menu.add_feature("Standard Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("MP_CHAR_ARMOUR_3_COUNT", f.value)
 end)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat.hint = 'Number of "Standard Armor" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat.max = 10
+autoRefillSnacksAndArmors__ARMOUR_3_COUNT_Feat.hint = 'Number of "Standard Armor" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__ARMOUR_3_COUNT_Feat.max = 10
 
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat = menu.add_feature("Heavy Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+autoRefillSnacksAndArmors__ARMOUR_4_COUNT_Feat = menu.add_feature("Heavy Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("MP_CHAR_ARMOUR_4_COUNT", f.value)
 end)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat.hint = 'Number of "Heavy Armor" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat.max = 10
+autoRefillSnacksAndArmors__ARMOUR_4_COUNT_Feat.hint = 'Number of "Heavy Armor" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__ARMOUR_4_COUNT_Feat.max = 10
 
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat = menu.add_feature("Super Heavy Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
+autoRefillSnacksAndArmors__ARMOUR_5_COUNT_Feat = menu.add_feature("Super Heavy Armor", "action_value_i", snacksAndArmorsMenu_Feat.id, function(f)
     set_snack_or_armor("MP_CHAR_ARMOUR_5_COUNT", f.value)
 end)
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.hint = 'Number of "Super Heavy Armor" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
-autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat.max = 10
+autoRefillSnacksAndArmors__ARMOUR_5_COUNT_Feat.hint = 'Number of "Super Heavy Armor" to automatically refill.\n\nYou can also select it to add them to your inventory immediately.'
+autoRefillSnacksAndArmors__ARMOUR_5_COUNT_Feat.max = 10
 
-local legitAutoRefillAmmosmenu_Feat = menu.add_feature("Legit Auto Refill Ammos", "parent", myRootMenu_Feat.id)
+local autoRefillAmmoMenu_Feat = menu.add_feature("Legit Auto Refill Ammo", "parent", myRootMenu_Feat.id)
 
 local refillAmmo_Feat = menu.get_feature_by_hierarchy_key("local.weapons.refill_ammo")
 local autoRefillAmmo_Feat = menu.get_feature_by_hierarchy_key("local.weapons.auto_refill_ammo")
-local legitAutoRefillAmmosTimer_Feat
+local autoRefillAmmoTimer_Feat
+local autoRefillAmmoNotification_Feat
 
-local legitAutoRefillAmmos_Feat = menu.add_feature("Legit Auto Refill Ammos", "toggle", legitAutoRefillAmmosmenu_Feat.id, function(f)
-    -- Store the original state of autoRefillAmmo_Feat
-    local originalAutoRefillState = autoRefillAmmo_Feat.on
+local autoRefillAmmo_Feat = menu.add_feature("Legit Auto Refill Ammo", "toggle", autoRefillAmmoMenu_Feat.id, function(f)
+    local originalAutoRefillState = f.on
+    local refillAmmo_Table = { needsReloading = true, start_Time = nil, isInitialReload = true }
 
     while f.on do
-        -- Disable autoRefillAmmo_Feat if it is on
+        system.yield()
+
         if autoRefillAmmo_Feat.on then
             autoRefillAmmo_Feat.on = false
+            menu.notify('Feature "Local>Weapons>Auto Refill Ammo" has been automatically disabled due to a conflict with the "' .. autoRefillAmmo_Feat.name .. '" feature.\nTHESE FEATURES CANNOT BE ENABLED SIMULTANEOUSLY.', SCRIPT_TITLE, 8, COLOR.ORANGE)
         end
 
-        local reloadState = true
-        local playerId = player.player_id()
-        local playerPed = player.player_ped()
+        if is_session_started() then
+            local playerId, playerPed = player.player_id(), player.player_ped()
 
-        local start_Time = os.clock()
-
-        -- Wait for 3 seconds and check if player did not reload/aim during this time
-        while os.clock() - start_Time < legitAutoRefillAmmosTimer_Feat.value do
-            if is_player_free_aiming_with_crosshair_reticle(playerId, playerPed) or ped.is_ped_shooting(playerPed) then -- player.is_player_free_aiming(playerId) Not needed at least in my tests.
-                reloadState = false
-                break
+            if refillAmmo_Table.needsReloading then
+                if
+                    refillAmmo_Table.isInitialReload
+                    or os.clock() - refillAmmo_Table.start_Time >= autoRefillAmmoTimer_Feat.value
+                then
+                    refillAmmo_Feat:toggle()
+                    if autoRefillAmmoNotification_Feat.on and not refillAmmo_Table.isInitialReload then
+                        menu.notify("Reloaded your weapons.", SCRIPT_TITLE, 3, COLOR.GREEN)
+                    end
+                    refillAmmo_Table = { needsReloading = false, start_Time = nil, isInitialReload = false }
+                else
+                    if
+                        is_player_free_aiming_with_crosshair_reticle(playerId, playerPed)
+                        or is_ped_shooting_from_armed_weapon(playerPed, 6, { checkAmmo = true }) -- Tbh I should check & compare ammo in each guns the player owns, it would ends up being the most efficient method. But anyways this works fine for now.
+                        or NATIVES.PED.IS_PED_SWITCHING_WEAPON(playerPed)
+                    then
+                        refillAmmo_Table.start_Time = os.clock()
+                    end
+                end
             end
-            system.yield(100) -- Prevent CPU overuse by adding a short delay
-        end
 
-        -- Refill ammo if the player did not reload/aim within the last 3 seconds
-        if reloadState then
-            refillAmmo_Feat:toggle()
+            if is_ped_shooting_from_armed_weapon(playerPed, 6, { checkAmmo = true }) then
+                refillAmmo_Table.needsReloading = true
+                refillAmmo_Table.start_Time = os.clock()
+            end
         end
-
-        system.yield(500) -- Adding a delay to prevent rapid refilling
     end
 
-    -- Restore the original state of autoRefillAmmo_Feat when the toggle is turned off
-    autoRefillAmmo_Feat.on = originalAutoRefillState
+    f.on = originalAutoRefillState
 end)
-legitAutoRefillAmmos_Feat.hint = "Automatically refill your ammo every [3-60] seconds when you're not aiming/shooting.\nThis mimics the time it takes for a macro to refill for legitimate players."
+autoRefillAmmo_Feat.hint = "Automatically refill your ammo every [3-60] seconds when you're not aiming, shooting, or switching weapons.\nThis mimics the minimal time it takes for a macro to refill for legitimate players."
 
-legitAutoRefillAmmosTimer_Feat = menu.add_feature("Refill Timer", "autoaction_value_i", legitAutoRefillAmmosmenu_Feat.id)
-legitAutoRefillAmmosTimer_Feat.min = 3
-legitAutoRefillAmmosTimer_Feat.max = 60
-legitAutoRefillAmmosTimer_Feat.hint = "Allows you to choose the period of time to automatically refill your ammo."
+autoRefillAmmoNotification_Feat = menu.add_feature("Refill Notification", "toggle", autoRefillAmmoMenu_Feat.id)
+autoRefillAmmoNotification_Feat.hint = "Notify when weapons are reloaded."
+
+autoRefillAmmoTimer_Feat = menu.add_feature("Refill Timer", "autoaction_value_i", autoRefillAmmoMenu_Feat.id)
+autoRefillAmmoTimer_Feat.min = 3
+autoRefillAmmoTimer_Feat.max = 60
+autoRefillAmmoTimer_Feat.hint = "Allows you to choose the period of time to automatically refill your ammo."
 
 local noCombatRollCooldown_Feat = menu.add_feature("No Combat Roll Cooldown", "toggle", myRootMenu_Feat.id)
 
@@ -1168,12 +1209,6 @@ autoBST_Feat.hint = "Automatically gives you Bull Shark Testosterone whenever yo
 
 menu.add_feature("<- - - - - - -  2Take1 shortcuts  - - - - - - ->", "action", myRootMenu_Feat.id)
 
-local infiniteAmmo_Feat = menu.add_feature("Infinite Ammo", "action", myRootMenu_Feat.id, function(f)
-    local feat = menu.get_feature_by_hierarchy_key("local.weapons.auto_refill_ammo")
-    feat.parent:toggle()
-    feat:select()
-end)
-
 local noWantedLevel_Feat = menu.add_feature("No Wanted Level", "action", myRootMenu_Feat.id, function(f)
     local feat = menu.get_feature_by_hierarchy_key("local.player_options.lawless_mode")
     feat.parent:toggle()
@@ -1216,14 +1251,15 @@ ALL_SETTINGS = {
     {key = "autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT", defaultValue = 5, feat = autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat},
     {key = "autoRefillSnacksAndArmors__CIGARETTES_BOUGHT", defaultValue = 20, feat = autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat},
     {key = "autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT", defaultValue = 10, feat = autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat},
-    {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_1_COUNT_Feat},
-    {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_2_COUNT_Feat},
-    {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_3_COUNT_Feat},
-    {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_4_COUNT_Feat},
-    {key = "autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__MP_CHAR_ARMOUR_5_COUNT_Feat},
+    {key = "autoRefillSnacksAndArmors__ARMOUR_1_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__ARMOUR_1_COUNT_Feat},
+    {key = "autoRefillSnacksAndArmors__ARMOUR_2_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__ARMOUR_2_COUNT_Feat},
+    {key = "autoRefillSnacksAndArmors__ARMOUR_3_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__ARMOUR_3_COUNT_Feat},
+    {key = "autoRefillSnacksAndArmors__ARMOUR_4_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__ARMOUR_4_COUNT_Feat},
+    {key = "autoRefillSnacksAndArmors__ARMOUR_5_COUNT", defaultValue = 10, feat = autoRefillSnacksAndArmors__ARMOUR_5_COUNT_Feat},
 
-    {key = "legitAutoRefillAmmos", defaultValue = false, feat = legitAutoRefillAmmos_Feat},
-    {key = "legitAutoRefillAmmosTimer", defaultValue = 3, feat = legitAutoRefillAmmosTimer_Feat},
+    {key = "autoRefillAmmo", defaultValue = false, feat = autoRefillAmmo_Feat},
+    {key = "autoRefillAmmoTimer", defaultValue = 3, feat = autoRefillAmmoTimer_Feat},
+    {key = "autoRefillAmmoNotification", defaultValue = false, feat = autoRefillAmmoNotification_Feat},
 
     {key = "noCombatRollCooldown", defaultValue = false, feat = noCombatRollCooldown_Feat},
     {key = "autoBST", defaultValue = false, feat = autoBST_Feat},
