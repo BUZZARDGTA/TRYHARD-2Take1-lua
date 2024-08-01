@@ -172,6 +172,22 @@ local function get_collection_custom_value(collection, inputKey, inputValue, out
     end
 end
 
+local function is_session_transition_active()
+    return NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("maintransition")) > 0
+end
+
+local function is_session_started(params)
+    params = params or {}
+    if params.hasTransitionFinished == nil then
+        params.hasTransitionFinished = false
+    end
+
+    return (
+        network.is_session_started() and player.get_host() ~= -1
+        and (not params.hasTransitionFinished or not is_session_transition_active()) -- Optional check
+    )
+end
+
 local function is_ped_in_combatroll(playerPed)
     return NATIVES.PED.GET_PED_RESET_FLAG(playerPed, PRF.DoingCombatRoll)
 end
@@ -191,36 +207,6 @@ end
 
 local function is_phone_open()
     return NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("cellphone_flashhand")) > 0
-end
-
-local function is_transition_active()
-    return (
-        NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("maintransition")) > 0
-        or (
-            NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("pi_menu")) == 0
-            and NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("am_pi_menu")) == 0
-        )
-        or (
-            NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("main")) == 0
-            and NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("freemode")) == 0
-        )
-    )
-end
-
-local function is_session_started()
-    return (
-        network.is_session_started()
-        and player.get_host() ~= -1
-        and not NATIVES.STREAMING.IS_PLAYER_SWITCH_IN_PROGRESS()
-        and not is_transition_active()
-        and (
-            NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("pi_menu")) == 0
-            and NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("am_pi_menu")) == 1
-        ) and (
-            NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("main")) == 0
-            and NATIVES.SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(gameplay.get_hash_key("freemode")) == 1
-        )
-    )
 end
 
 local function is_player_playing(playerID)
@@ -260,19 +246,32 @@ local function is_player_free_aiming_with_crosshair_reticle(playerID, playerPed)
 end
 
 local function is_ped_shooting_from_armed_weapon(playerPed, typeFlags, params)
-    -- https://alloc8or.re/gta5/nativedb/?n=0x475768A975D5AD17
+    -- typeFlags: https://alloc8or.re/gta5/nativedb/?n=0x475768A975D5AD17
 
     params = params or {}
     if params.checkAmmo == nil then
         params.checkAmmo = false
     end
 
-    local function has_ped_weapon_valid_ammo_counter(playerPed)
-        local selectedPedWeapon = NATIVES.WEAPON.GET_SELECTED_PED_WEAPON(playerPed)
+    local function is_ped_armed_invalid_weapon(selectedPedWeapon)
+        -- Basically these are not recognised from WEAPON::IS_PED_ARMED, so I'm manually checking on them.
+        local invalidWeapons = {
+            [gameplay.get_hash_key("weapon_fertilizercan")] = true,
+            [gameplay.get_hash_key("weapon_fireextinguisher")] = true,
+            [gameplay.get_hash_key("weapon_hazardcan")] = true,
+            [-1168940174] = true, -- Sp version of "weapon_hazardcan"
+            [gameplay.get_hash_key("weapon_petrolcan")] = true,
+        }
+
+        return invalidWeapons[selectedPedWeapon]
+    end
+
+    local function has_ped_weapon_valid_ammo_counter(playerPed, selectedPedWeapon)
         local ammoInPedWeapon = NATIVES.WEAPON.GET_AMMO_IN_PED_WEAPON(playerPed, selectedPedWeapon)
         local excludedWeapons = {
             [gameplay.get_hash_key("weapon_hackingdevice")] = true,
             [gameplay.get_hash_key("weapon_raypistol")] = true,
+            [-1355376991] = true, -- Sp version of "weapon_raypistol"
             [gameplay.get_hash_key("weapon_stungun_mp")] = true,
             [gameplay.get_hash_key("weapon_stungun")] = true,
         }
@@ -283,10 +282,12 @@ local function is_ped_shooting_from_armed_weapon(playerPed, typeFlags, params)
         )
     end
 
+    local selectedPedWeapon = NATIVES.WEAPON.GET_SELECTED_PED_WEAPON(playerPed)
+
     return (
-        NATIVES.WEAPON.IS_PED_ARMED(playerPed, typeFlags)
+        (NATIVES.WEAPON.IS_PED_ARMED(playerPed, typeFlags) or is_ped_armed_invalid_weapon(selectedPedWeapon))
         and NATIVES.PED.GET_PED_CONFIG_FLAG(playerPed, PCF.IsFiring, true)
-        and (not params.checkAmmo or has_ped_weapon_valid_ammo_counter(playerPed)) -- Optional ammo check
+        and (not params.checkAmmo or has_ped_weapon_valid_ammo_counter(playerPed, selectedPedWeapon)) -- Optional check
     )
 end
 
@@ -375,7 +376,7 @@ local function add_mp_index(statName, lastMpChar)
 end
 
 local function set_snack_or_armor(snackOrArmorName, quantity)
-    if not is_session_started() then
+    if not is_session_started({ hasTransitionFinished = true }) then
         return false
     end
 
@@ -485,7 +486,7 @@ local function enable_thermal_vision()
 
     local getGlobalResult
 
-    if is_session_started() then
+    if network.is_session_started() then
         getGlobalResult = bypass_online()
     end
 
@@ -508,7 +509,7 @@ local function disable_thermal_vision()
 
     local getGlobalResult
 
-    if is_session_started() then
+    if network.is_session_started() then
         getGlobalResult = bypass_online()
     end
 
@@ -764,6 +765,19 @@ local exitScript_Feat = menu.add_feature("#FF0000DD#Stop Script#DEFAULT#", "acti
 end)
 exitScript_Feat.hint = 'Stop "' .. SCRIPT_NAME .. '"'
 
+local settingsMenu_Feat = menu.add_feature("Settings", "parent", myRootMenu_Feat.id)
+settingsMenu_Feat.hint = "Options for the script."
+
+local loadSettings_Feat = menu.add_feature('Load Settings', "action", settingsMenu_Feat.id, function()
+    load_settings()
+end)
+loadSettings_Feat.hint = 'Load saved settings from your file: "' .. HOME_PATH .. "\\" .. SCRIPT_SETTINGS__PATH .. '".\n\nDeleting this file will apply the default settings.'
+
+local saveSettings_Feat = menu.add_feature('Save Settings', "action", settingsMenu_Feat.id, function()
+    save_settings()
+end)
+saveSettings_Feat.hint = 'Save your current settings to the file: "' .. HOME_PATH .. "\\" .. SCRIPT_SETTINGS__PATH .. '".'
+
 menu.add_feature("<- - -  TRYHARD by IB_U_Z_Z_A_R_Dl  - - ->", "action", myRootMenu_Feat.id)
 
 local idleCrosshairMenu_Feat = menu.add_feature("Idle Crosshair", "parent", myRootMenu_Feat.id)
@@ -792,7 +806,8 @@ local idleCrosshair_Feat = menu.add_feature("Idle Crosshair", "toggle", idleCros
 
         if
             is_any_game_overlay_open()
-            or is_transition_active()
+            or is_session_transition_active()
+            or NATIVES.STREAMING.IS_PLAYER_SWITCH_IN_PROGRESS()
             or NATIVES.HUD.IS_WARNING_MESSAGE_ACTIVE()
             or NATIVES.HUD.IS_WARNING_MESSAGE_READY_FOR_CONTROL()
             or (hideIdleCrosshairInChatMenu_Feat.on and NATIVES.HUD.IS_MP_TEXT_CHAT_TYPING())
@@ -996,21 +1011,19 @@ local autoRefillSnacksAndArmors__ARMOUR_5_COUNT_Feat
 
 local autoRefillSnacksAndArmors_Feat = menu.add_feature("Auto Refill Snacks & Armors", "toggle", snacksAndArmorsMenu_Feat.id, function(f)
     while f.on do
-        if is_session_started() then
-            set_snack_or_armor("NO_BOUGHT_YUM_SNACKS",    autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat.value)
-            set_snack_or_armor("NO_BOUGHT_HEALTH_SNACKS", autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat.value)
-            set_snack_or_armor("NO_BOUGHT_EPIC_SNACKS",   autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat.value)
-            set_snack_or_armor("NUMBER_OF_ORANGE_BOUGHT", autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat.value)
-            set_snack_or_armor("NUMBER_OF_BOURGE_BOUGHT", autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat.value)
-            set_snack_or_armor("NUMBER_OF_CHAMP_BOUGHT",  autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat.value)
-            set_snack_or_armor("CIGARETTES_BOUGHT",       autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat.value)
-            set_snack_or_armor("NUMBER_OF_SPRUNK_BOUGHT", autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat.value)
-            set_snack_or_armor("MP_CHAR_ARMOUR_1_COUNT",  autoRefillSnacksAndArmors__ARMOUR_1_COUNT_Feat.value)
-            set_snack_or_armor("MP_CHAR_ARMOUR_2_COUNT",  autoRefillSnacksAndArmors__ARMOUR_2_COUNT_Feat.value)
-            set_snack_or_armor("MP_CHAR_ARMOUR_3_COUNT",  autoRefillSnacksAndArmors__ARMOUR_3_COUNT_Feat.value)
-            set_snack_or_armor("MP_CHAR_ARMOUR_4_COUNT",  autoRefillSnacksAndArmors__ARMOUR_4_COUNT_Feat.value)
-            set_snack_or_armor("MP_CHAR_ARMOUR_5_COUNT",  autoRefillSnacksAndArmors__ARMOUR_5_COUNT_Feat.value)
-        end
+        set_snack_or_armor("NO_BOUGHT_YUM_SNACKS",    autoRefillSnacksAndArmors__NO_BOUGHT_YUM_SNACKS_Feat.value)
+        set_snack_or_armor("NO_BOUGHT_HEALTH_SNACKS", autoRefillSnacksAndArmors__NO_BOUGHT_HEALTH_SNACKS_Feat.value)
+        set_snack_or_armor("NO_BOUGHT_EPIC_SNACKS",   autoRefillSnacksAndArmors__NO_BOUGHT_EPIC_SNACKS_Feat.value)
+        set_snack_or_armor("NUMBER_OF_ORANGE_BOUGHT", autoRefillSnacksAndArmors__NUMBER_OF_ORANGE_BOUGHT_Feat.value)
+        set_snack_or_armor("NUMBER_OF_BOURGE_BOUGHT", autoRefillSnacksAndArmors__NUMBER_OF_BOURGE_BOUGHT_Feat.value)
+        set_snack_or_armor("NUMBER_OF_CHAMP_BOUGHT",  autoRefillSnacksAndArmors__NUMBER_OF_CHAMP_BOUGHT_Feat.value)
+        set_snack_or_armor("CIGARETTES_BOUGHT",       autoRefillSnacksAndArmors__CIGARETTES_BOUGHT_Feat.value)
+        set_snack_or_armor("NUMBER_OF_SPRUNK_BOUGHT", autoRefillSnacksAndArmors__NUMBER_OF_SPRUNK_BOUGHT_Feat.value)
+        set_snack_or_armor("MP_CHAR_ARMOUR_1_COUNT",  autoRefillSnacksAndArmors__ARMOUR_1_COUNT_Feat.value)
+        set_snack_or_armor("MP_CHAR_ARMOUR_2_COUNT",  autoRefillSnacksAndArmors__ARMOUR_2_COUNT_Feat.value)
+        set_snack_or_armor("MP_CHAR_ARMOUR_3_COUNT",  autoRefillSnacksAndArmors__ARMOUR_3_COUNT_Feat.value)
+        set_snack_or_armor("MP_CHAR_ARMOUR_4_COUNT",  autoRefillSnacksAndArmors__ARMOUR_4_COUNT_Feat.value)
+        set_snack_or_armor("MP_CHAR_ARMOUR_5_COUNT",  autoRefillSnacksAndArmors__ARMOUR_5_COUNT_Feat.value)
 
         system.yield(10000) -- No need to spam it.
     end
@@ -1118,8 +1131,12 @@ local autoRefillAmmo_Feat = menu.add_feature("Legit Auto Refill Ammo", "toggle",
             menu.notify('Feature "Local>Weapons>Auto Refill Ammo" has been automatically disabled due to a conflict with the "' .. autoRefillAmmo_Feat.name .. '" feature.\nTHESE FEATURES CANNOT BE ENABLED SIMULTANEOUSLY.', SCRIPT_TITLE, 8, COLOR.ORANGE)
         end
 
-        if is_session_started() then
-            local playerId, playerPed = player.player_id(), player.player_ped()
+        local playerId = player.player_id()
+        if is_player_playing(playerId) and not (
+            is_session_transition_active()
+            or NATIVES.STREAMING.IS_PLAYER_SWITCH_IN_PROGRESS()
+        ) then
+            local playerPed = player.player_ped()
 
             if refillAmmo_Table.needsReloading then
                 if
@@ -1193,7 +1210,7 @@ local autoBST_Feat = menu.add_feature("Auto Bull Shark Testosterone (BST)", "tog
             end
         end
         if getBST then
-            if is_session_started() then
+            if is_session_started({ hasTransitionFinished = true }) then
                 getBST_Feat:toggle()
             end
         end
@@ -1221,10 +1238,6 @@ local disablePhoneCalls_Feat = menu.add_feature("Disable Phone Calls", "action",
     feat:select()
 end)
 
-menu.add_feature("<- - - - - - - -  Script Settings  - - - - - - - ->", "action", myRootMenu_Feat.id)
-
-local settingsMenu_Feat = menu.add_feature("Settings", "parent", myRootMenu_Feat.id)
-settingsMenu_Feat.hint = "Options for the script."
 
 ALL_SETTINGS = {
     {key = "idleCrosshair", defaultValue = false, feat = idleCrosshair_Feat},
@@ -1264,16 +1277,5 @@ ALL_SETTINGS = {
     {key = "noCombatRollCooldown", defaultValue = false, feat = noCombatRollCooldown_Feat},
     {key = "autoBST", defaultValue = false, feat = autoBST_Feat},
 }
-
-local loadSettings_Feat = menu.add_feature('Load Settings', "action", settingsMenu_Feat.id, function()
-    load_settings()
-end)
-loadSettings_Feat.hint = 'Load saved settings from your file: "' .. HOME_PATH .. "\\" .. SCRIPT_SETTINGS__PATH .. '".\n\nDeleting this file will apply the default settings.'
-
-local saveSettings_Feat = menu.add_feature('Save Settings', "action", settingsMenu_Feat.id, function()
-    save_settings()
-end)
-saveSettings_Feat.hint = 'Save your current settings to the file: "' .. HOME_PATH .. "\\" .. SCRIPT_SETTINGS__PATH .. '".'
-
 
 load_settings({ isScriptStartup = true })
