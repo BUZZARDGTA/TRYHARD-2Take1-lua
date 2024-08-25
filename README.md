@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="https://img.shields.io/badge/Online_Version-1.69-green" alt="Online Version">
+  <img src="https://img.shields.io/badge/Game_Build-3274-green" alt="Game Build">
+  <br><br>
+</p>
+
 This is a remake of the Stand version available at [Illegal-Services/TRYHARD-Stand-lua](https://github.com/Illegal-Services/TRYHARD-Stand-lua)<br>
 Please note that this project is a **work in progress** 🚧<br>
 **Not all options are completed or started yet** 🚧<br>
