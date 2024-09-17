@@ -5,11 +5,6 @@
 </p>
 
 This is a remake of the Stand version available at [Illegal-Services/TRYHARD-Stand-lua](https://github.com/Illegal-Services/TRYHARD-Stand-lua)<br>
-Please note that this project is a **work in progress** 🚧<br>
-**Not all options are completed or started yet** 🚧<br>
-When this message is removed, it will indicate that the script is finished.<br>
-
-🌟 **Status:** _In Progress_ 🚧
 
 ---
 
